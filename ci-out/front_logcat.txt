@@ -1,0 +1,8 @@
+--------- beginning of main
+11-12 13:19:20.238  4619  4619 I VHSCAM  : AUTOTEST_BEGIN seconds=8
+11-12 13:19:36.533  4619  4654 I VhsRenderer: recording stopped after 45 frames, 9599 ms
+11-12 13:19:36.533  4619  4654 I TapeRecorder: video finished, closing the tape
+11-12 13:19:37.134  4619  4814 I TapeRecorder: audio encoder drained, 434176 samples, microphone=true
+11-12 13:19:41.517  4619  4772 I TapeRecorder: video encoder drained
+11-12 13:19:43.390  4619  4772 I TapeRecorder: recording finished: uri=content://media/external_primary/video/media/1000000018 name=VHS_20261112_13192329.mp4 error=null
+11-12 13:19:43.545  4619  4619 I VHSCAM  : AUTOTEST_DONE uri=content://media/external_primary/video/media/1000000018 name=VHS_20261112_13192329.mp4 error=null
