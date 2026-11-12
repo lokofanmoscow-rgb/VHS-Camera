@@ -1,46 +1,62 @@
 #!/usr/bin/env bash
-# Installs the APK on the CI emulator, lets the app record a clip by itself
-# (autotest mode) and collects the result for inspection.
+# Installs the APK on the CI emulator, lets the app record clips by itself
+# (autotest mode) and collects the results for inspection.
 set -x
 APK=apk-dl/VHS-Camera.apk
 PKG=com.vhscamera.app
 OUT=ci-out
+ALBUM="/sdcard/DCIM/VHS Camera"
 rm -rf "$OUT"; mkdir -p "$OUT"
 
 adb install -r -g "$APK" || exit 1
 adb shell settings put system accelerometer_rotation 0
-adb logcat -c
-adb shell am start -n $PKG/.MainActivity --ei autotest 8
 
-done=0
-for i in $(seq 1 120); do
-  if adb logcat -d -s VHSCAM:I | grep -q AUTOTEST_DONE; then done=1; break; fi
-  if [ "$i" = 5 ]; then adb exec-out screencap -p > "$OUT/screen_idle.png"; fi
-  if [ "$i" = 12 ]; then adb exec-out screencap -p > "$OUT/screen_rec.png"; fi
-  sleep 1
-done
-sleep 2
-adb exec-out screencap -p > "$OUT/screen_after.png"
-adb logcat -d -s VHSCAM:* VhsRenderer:* TapeRecorder:* CameraController:* AndroidRuntime:E > "$OUT/logcat.txt"
-adb logcat -d | grep -i -E "vhscamera|MediaCodec|c2\.|AudioRecord|FATAL" | tail -300 > "$OUT/logcat_more.txt"
-adb shell 'ls -la "/sdcard/DCIM/VHS Camera/"' > "$OUT/files.txt" 2>&1
-adb shell content query --uri content://media/external/video/media \
-  --projection _display_name:relative_path:is_pending:duration:width:height:_size > "$OUT/mediastore.txt" 2>&1
-cat "$OUT/logcat.txt" | tail -60
-cat "$OUT/files.txt" "$OUT/mediastore.txt"
+# run_case NAME [extra am-start args...]: one autotest recording, results in $OUT/NAME_*
+run_case() {
+  local name=$1; shift
+  adb shell am force-stop $PKG
+  adb shell "rm -rf '$ALBUM'"
+  adb logcat -c
+  adb shell am start -n $PKG/.MainActivity --ei autotest 8 "$@"
+  local done=0
+  for i in $(seq 1 150); do
+    if adb logcat -d -s VHSCAM:I | grep -q AUTOTEST_DONE; then done=1; break; fi
+    if [ "$i" = 14 ]; then adb exec-out screencap -p > "$OUT/${name}_screen_rec.png"; fi
+    sleep 1
+  done
+  sleep 2
+  adb logcat -d -s VHSCAM:* VhsRenderer:* TapeRecorder:* CameraController:* AndroidRuntime:E > "$OUT/${name}_logcat.txt"
+  adb shell "ls -la '$ALBUM/'" > "$OUT/${name}_files.txt" 2>&1
+  adb shell content query --uri content://media/external/video/media \
+    --projection _display_name:relative_path:is_pending:duration:width:height:_size > "$OUT/${name}_mediastore.txt" 2>&1
+  cat "$OUT/${name}_logcat.txt" | tail -40
+  cat "$OUT/${name}_files.txt" "$OUT/${name}_mediastore.txt"
 
-F=$(adb shell 'ls "/sdcard/DCIM/VHS Camera/"' | tr -d '\r' | grep -i '\.mp4$' | tail -1)
-if [ -z "$F" ] || [ "$done" != 1 ]; then echo "NO RECORDING PRODUCED"; exit 1; fi
-adb pull "/sdcard/DCIM/VHS Camera/$F" "$OUT/sample.mp4" || exit 1
+  local f
+  f=$(adb shell "ls '$ALBUM/'" | tr -d '\r' | grep -i '\.mp4$' | tail -1)
+  if [ -z "$f" ] || [ "$done" != 1 ]; then echo "CASE $name: NO RECORDING PRODUCED"; return 1; fi
+  adb pull "$ALBUM/$f" "$OUT/${name}.mp4" || return 1
+  local v="$OUT/${name}.mp4"
+  ffprobe -v error -show_entries format=duration,bit_rate:stream=index,codec_name,profile,width,height,avg_frame_rate,r_frame_rate,nb_frames,sample_rate,channels,bit_rate,start_time,duration \
+    -of default=nw=1 "$v" | tee "$OUT/${name}_ffprobe.txt"
+  ffmpeg -v error -y -i "$v" -vf "fps=2,scale=480:360,tile=4x4" -frames:v 1 -q:v 4 "$OUT/${name}_sheet.jpg"
+  ffmpeg -v error -y -i "$v" -vf "select='lt(n,12)',scale=480:360,tile=4x3" -frames:v 1 -vsync 0 -q:v 4 "$OUT/${name}_start.jpg"
+  ffmpeg -v error -y -sseof -0.6 -i "$v" -vf "scale=480:360,tile=4x3" -frames:v 1 -q:v 4 "$OUT/${name}_end.jpg"
+  ffmpeg -v error -y -ss 1.0 -i "$v" -frames:v 1 -q:v 2 "$OUT/${name}_frame_1s.jpg"
+  ffmpeg -v error -y -ss 5.0 -i "$v" -frames:v 1 -q:v 2 "$OUT/${name}_frame_5s.jpg"
+  ffmpeg -v error -y -i "$v" -vn -c:a copy "$OUT/${name}_audio.m4a"
+  ffprobe -v error -select_streams v:0 -show_entries frame=pts_time -of csv=p=0 "$v" | head -400 > "$OUT/${name}_video_pts.txt"
+  # A clip must have a picture and a sound track of sensible length.
+  local dur
+  dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$v")
+  awk -v d="$dur" 'BEGIN { exit !(d > 5.0 && d < 14.0) }' || { echo "CASE $name: bad duration $dur"; return 1; }
+  grep -q "codec_name=h264" "$OUT/${name}_ffprobe.txt" || { echo "CASE $name: no video"; return 1; }
+  grep -q "codec_name=aac" "$OUT/${name}_ffprobe.txt" || { echo "CASE $name: no audio"; return 1; }
+  return 0
+}
 
-ffprobe -v error -show_entries format=duration,bit_rate:stream=index,codec_name,profile,width,height,avg_frame_rate,r_frame_rate,nb_frames,sample_rate,channels,bit_rate,start_time,duration \
-  -of default=nw=1 "$OUT/sample.mp4" | tee "$OUT/ffprobe.txt"
-ffmpeg -v error -y -i "$OUT/sample.mp4" -vf "fps=2,scale=480:360,tile=4x4" -frames:v 1 -q:v 4 "$OUT/sheet.jpg"
-ffmpeg -v error -y -i "$OUT/sample.mp4" -vf "select='lt(n,12)',scale=480:360,tile=4x3" -frames:v 1 -vsync 0 -q:v 4 "$OUT/start.jpg"
-ffmpeg -v error -y -sseof -0.4 -i "$OUT/sample.mp4" -vf "scale=480:360,tile=4x3" -frames:v 1 -q:v 4 "$OUT/end.jpg"
-ffmpeg -v error -y -ss 1.0 -i "$OUT/sample.mp4" -frames:v 1 -q:v 2 "$OUT/frame_1s.jpg"
-ffmpeg -v error -y -ss 5.0 -i "$OUT/sample.mp4" -frames:v 1 -q:v 2 "$OUT/frame_5s.jpg"
-ffmpeg -v error -y -i "$OUT/sample.mp4" -vn -c:a copy "$OUT/audio.m4a"
-ffmpeg -v error -i "$OUT/sample.mp4" -af volumedetect -vn -f null - 2>&1 | grep -E "mean_volume|max_volume" | tee "$OUT/volume.txt"
-ffprobe -v error -select_streams v:0 -show_entries frame=pts_time -of csv=p=0 "$OUT/sample.mp4" | head -400 > "$OUT/video_pts.txt"
+status=0
+run_case back || status=1
+run_case front --ez front true || status=1
 ls -la "$OUT"
+exit $status

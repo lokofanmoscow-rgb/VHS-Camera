@@ -115,6 +115,9 @@ class CameraController(context: Context, private val listener: Listener) {
                                             b.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
                                         }
                                         pickFpsRange(fpsRanges)?.let { b.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, it) }
+                                        // A camcorder on the shoulder shakes; electronic stabilisation would also crop the frame.
+                                        b.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                                            CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
                                         b.set(CaptureRequest.FLASH_MODE,
                                             if (torch && hasFlash) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF)
                                         builder = b

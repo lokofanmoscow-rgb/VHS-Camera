@@ -44,11 +44,11 @@ void main() {
     dx += inBand * uBand.z * (0.4 + 1.2 * rn.x);
     s.x = mix(s.x, 0.5 + (s.x - 0.5) * (1.0 - uBand.w), inBand);
 
-    // Head-switching band: the last lines are torn sideways, smeared and streaky.
-    float hs = smoothstep(0.9790, 0.9825, uv.y);
-    vec4 hn = texture2D(uNoise, vec2((floor(uv.y * 720.0) + 0.5) / 256.0 + uRand.y, uRand.x + 0.37));
-    s.y = mix(s.y, 0.9720 + 0.006 * hn.x, hs);
-    s.x = mix(s.x, 0.15 + uv.x * 0.12 + 0.60 * hn.y, hs);
+    // Head-switching band: the last dozen lines are torn sideways and smeared.
+    float hs = smoothstep(0.9805, 0.9835, uv.y);
+    vec4 hn = texture2D(uNoise, vec2((floor(uv.y * 360.0) + 0.5) / 256.0 + uRand.y, uRand.x + 0.37));
+    s.y = mix(s.y, 0.9740 + 0.005 * hn.x, hs);
+    s.x = mix(s.x, 0.12 + uv.x * 0.11 + 0.62 * hn.y, hs);
 
     s.x += dx;
 
@@ -63,18 +63,25 @@ void main() {
     // Faint ghost to the right.
     c = c * 0.955 + 0.075 * texture2D(uCur, s - vec2(12.0 * PX, 0.0)).rgb;
 
-    // Tape dropouts: short bright dashes with colour fringes.
-    float prob = 0.0007
-               + 0.055 * smoothstep(0.905, 0.955, uv.y) * (1.0 - hs)
+    // Tape dropouts: rows of short, soft bright dashes that break up into colours.
+    float drow = floor(uv.y * 150.0);
+    vec4 dr = texture2D(uNoise, vec2((drow + 0.5) / 256.0 + uRand.z, uRand.w + 0.61));
+    float prob = 0.00012
+               + 0.15 * smoothstep(0.915, 0.945, uv.y) * (1.0 - smoothstep(0.970, 0.979, uv.y))
                + uStatic * 0.30 * (1.0 - smoothstep(0.25, 0.60, uv.y));
-    float on = step(1.0 - prob, rn2.y);
-    float len = 0.005 + 0.060 * rn2.z * rn2.z * rn2.z;
-    float x0 = rn2.w;
-    float fr = fract(uv.y * 240.0);
+    float rowOn = step(1.0 - prob, dr.x);
+    float fr = fract(uv.y * 150.0);
     float thick = smoothstep(0.0, 0.3, fr) * (1.0 - smoothstep(0.7, 1.0, fr));
-    vec3 dd = abs(vec3(uv.x + (3.0 + 8.0 * rn.y) * PX, uv.x, uv.x - (3.0 + 8.0 * rn.z) * PX) - x0);
-    vec3 dash = on * thick * (0.60 + 0.40 * rn.x) * (1.0 - smoothstep(len * 0.5, len, dd));
-    c = mix(c, vec3(1.0), dash);
+    float dk = 0.10 + 0.10 * dr.y;                    // dash length scale
+    float dv = (drow + 0.5) / 256.0 + uRand.x;
+    vec3 du = vec3(uv.x + 7.0 * PX, uv.x, uv.x - 7.0 * PX) * dk + dr.z;
+    vec4 d0 = texture2D(uNoise, vec2(du.y, dv));
+    vec3 lit = vec3(texture2D(uNoise, vec2(du.x, dv)).r, d0.r, texture2D(uNoise, vec2(du.z, dv)).r);
+    vec3 fx = fract(du * 256.0);
+    vec3 ends = smoothstep(0.0, 0.3, fx) * (1.0 - smoothstep(0.7, 1.0, fx));
+    float cut = 0.84 - 0.25 * uStatic;
+    vec3 dash = rowOn * thick * ends * step(cut, lit);
+    c = mix(c, vec3(0.78) + 0.22 * d0.gba, dash * (0.85 + 0.15 * dr.w));
 
     // Snow and the tracking bar at tape start.
     vec4 sn = texture2D(uNoise, uv * vec2(480.0, 360.0) / 256.0 + uRand2.xy);
@@ -87,7 +94,9 @@ void main() {
     // Fine grain, tape black level and the dark last two lines.
     vec4 g = texture2D(uNoise, uv * vec2(960.0, 720.0) / 256.0 + uRand2.zw);
     c += (g.r - 0.5) * 0.014;
-    c *= mix(1.0, 0.55 + 0.65 * hn.z, hs);
+    // The torn lines are duller and a little darker than the picture.
+    c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), 0.45 * hs);
+    c *= mix(1.0, 0.74 + 0.22 * hn.z, hs);
     c = 0.056 + 0.930 * clamp(c, 0.0, 1.0);
     c *= 1.0 - 0.45 * smoothstep(0.9965, 1.0, uv.y);
 

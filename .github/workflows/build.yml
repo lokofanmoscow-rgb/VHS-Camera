@@ -88,7 +88,7 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_6
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -camera-front emulated
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back virtualscene -camera-front emulated
           disable-animations: true
           script: bash ci/emulator-test.sh
 
@@ -103,7 +103,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm -f ci-out/sample.mp4
+          rm -f ci-out/*.mp4
           git add -f ci-out || exit 0
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "Update emulator test output [skip ci]"

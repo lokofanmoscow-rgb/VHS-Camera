@@ -101,6 +101,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         autotestSeconds = intent?.getIntExtra("autotest", 0) ?: 0
+        front = intent?.getBooleanExtra("front", false) ?: false
         buildUi()
         hideSystemUi()
     }

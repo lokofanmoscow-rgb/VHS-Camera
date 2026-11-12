@@ -597,7 +597,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         const val OUT_H = 720
         private const val TAPE_W = 480
         private const val TAPE_H = 720
-        private const val ZOOM_SPEED = 0.93f      // magnification per second
+        private const val ZOOM_SPEED = 0.78f      // magnification per second, measured on the reference tapes
         private const val MAX_ZOOM = 6f
         private const val WEAVE = 0.35f
         private const val PLAY_SECONDS = 3.0f
