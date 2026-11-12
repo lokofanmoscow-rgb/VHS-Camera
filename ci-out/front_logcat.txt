@@ -1,8 +1,13 @@
 --------- beginning of main
-11-12 13:19:20.238  4619  4619 I VHSCAM  : AUTOTEST_BEGIN seconds=8
-11-12 13:19:36.533  4619  4654 I VhsRenderer: recording stopped after 45 frames, 9599 ms
-11-12 13:19:36.533  4619  4654 I TapeRecorder: video finished, closing the tape
-11-12 13:19:37.134  4619  4814 I TapeRecorder: audio encoder drained, 434176 samples, microphone=true
-11-12 13:19:41.517  4619  4772 I TapeRecorder: video encoder drained
-11-12 13:19:43.390  4619  4772 I TapeRecorder: recording finished: uri=content://media/external_primary/video/media/1000000018 name=VHS_20261112_13192329.mp4 error=null
-11-12 13:19:43.545  4619  4619 I VHSCAM  : AUTOTEST_DONE uri=content://media/external_primary/video/media/1000000018 name=VHS_20261112_13192329.mp4 error=null
+11-12 13:33:18.073  4573  4573 I VHSCAM  : AUTOTEST_BEGIN seconds=8
+11-12 13:33:19.576  4573  4615 I VhsRenderer: frame 0: camera 1920x1440 sensor=270 front=true displayRotation=1 texMatrix=0.00,-1.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,1.00,0.00,1.00
+11-12 13:33:31.534  4573  4615 I VhsRenderer: frame 30: camera 1920x1440 sensor=270 front=true displayRotation=1 texMatrix=0.00,-1.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,1.00,0.00,1.00
+11-12 13:33:35.365  4573  4615 I VhsRenderer: recording stopped after 34 frames, 10191 ms
+11-12 13:33:35.365  4573  4615 I TapeRecorder: video finished, closing the tape
+11-12 13:33:35.448  4573  4901 I TapeRecorder: audio encoder drained, 191488 samples, microphone=true
+11-12 13:33:47.016  4573  4871 I TapeRecorder: video encoder drained
+11-12 13:33:48.607  4573  4871 I TapeRecorder: recording finished: uri=content://media/external_primary/video/media/1000000018 name=VHS_20261112_13332198.mp4 error=null
+11-12 13:33:48.771  4573  4573 I VHSCAM  : AUTOTEST_DONE uri=content://media/external_primary/video/media/1000000018 name=VHS_20261112_13332198.mp4 error=null
+  overrideConfig={1.0 310mcc260mnc [en_US] ldltr sw411dp w866dp h363dp 420dpi nrml long land finger qwerty/v/v -nav/h winConfig={ mBounds=Rect(0, 0 - 2400, 1080) mAppBounds=Rect(128, 0 - 2400, 1017) mMaxBounds=Rect(0, 0 - 2400, 1080) mDisplayRotation=ROTATION_90 mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_90} as.3 s.240 fontWeightAdjustment=0}
+      overrideConfig={0.0 ?mcc0mnc ?localeList ?layoutDir ?swdp ?wdp ?hdp ?density ?lsize ?long ?ldr ?wideColorGamut ?orien ?uimode ?night ?touch ?keyb/?/? ?nav/? winConfig={ mBounds=Rect(0, 0 - 0, 0) mAppBounds=null mMaxBounds=Rect(0, 0 - 0, 0) mDisplayRotation=undefined mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=undefined} ?fontWeightAdjustment}
+    mRotation=1 mDeferredRotationPauseCount=0
