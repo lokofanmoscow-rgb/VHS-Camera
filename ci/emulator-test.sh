@@ -29,7 +29,7 @@ run_case() {
   for i in $(seq 1 150); do
     if adb logcat -d -s VHSCAM:I | grep -q AUTOTEST_DONE; then done=1; break; fi
     # Drag a finger down the viewfinder while recording: the tracking glitch must not break anything.
-    if [ "$i" = 11 ]; then (adb shell input swipe 1200 250 1200 850 2500 &) ; fi
+    case "$i" in 6|9|12|15|18) (adb shell input swipe 1200 250 1200 850 2000 &) ;; esac
     if [ "$i" = 14 ]; then adb exec-out screencap -p > "$OUT/${name}_screen_rec.png"; fi
     sleep 1
   done
@@ -54,7 +54,7 @@ run_case() {
   ffmpeg -v error -y -sseof -0.6 -i "$v" -vf "scale=480:360,tile=4x3" -frames:v 1 -q:v 4 "$OUT/${name}_end.jpg"
   ffmpeg -v error -y -ss 1.0 -i "$v" -frames:v 1 -q:v 2 "$OUT/${name}_frame_1s.jpg"
   ffmpeg -v error -y -ss 5.0 -i "$v" -frames:v 1 -q:v 2 "$OUT/${name}_frame_5s.jpg"
-  ffmpeg -v error -y -ss 2.5 -i "$v" -vf "fps=4,scale=480:360,tile=4x3" -frames:v 1 -q:v 4 "$OUT/${name}_mid.jpg"
+  ffmpeg -v error -y -i "$v" -vf "scale=320:240,tile=8x6" -frames:v 1 -vsync 0 -q:v 5 "$OUT/${name}_all.jpg"
   ffmpeg -v error -y -i "$v" -vn -c:a copy "$OUT/${name}_audio.m4a"
   ffprobe -v error -select_streams v:0 -show_entries frame=pts_time -of csv=p=0 "$v" | head -400 > "$OUT/${name}_video_pts.txt"
   # A clip must have a picture and a sound track of sensible length.
