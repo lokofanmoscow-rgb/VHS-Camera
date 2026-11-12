@@ -1,13 +1,13 @@
 --------- beginning of main
-11-12 13:38:50.315  3766  3766 I VHSCAM  : AUTOTEST_BEGIN seconds=8
-11-12 13:38:51.489  3766  3832 I VhsRenderer: frame 0: camera 1280x960 sensor=90 front=false displayRotation=3 texMatrix=0.00,-1.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,1.00,1.00,0.00,1.00
-11-12 13:39:02.498  3766  3832 I VhsRenderer: frame 30: camera 1280x960 sensor=90 front=false displayRotation=3 texMatrix=0.00,-1.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,1.00,1.00,0.00,1.00
-11-12 13:39:06.535  3766  3832 I VhsRenderer: recording stopped after 37 frames, 10366 ms
-11-12 13:39:06.535  3766  3832 I TapeRecorder: video finished, closing the tape
-11-12 13:39:06.585  3766  4082 I TapeRecorder: audio encoder drained, 296960 samples, microphone=true
-11-12 13:39:13.449  3766  3994 I TapeRecorder: video encoder drained
-11-12 13:39:14.749  3766  3994 I TapeRecorder: recording finished: uri=content://media/external_primary/video/media/1000000017 name=VHS_20261112_13385374.mp4 error=null
-11-12 13:39:15.057  3766  3766 I VHSCAM  : AUTOTEST_DONE uri=content://media/external_primary/video/media/1000000017 name=VHS_20261112_13385374.mp4 error=null
-  overrideConfig={1.0 310mcc260mnc [en_US] ldltr sw411dp w866dp h363dp 420dpi nrml long land finger qwerty/v/v -nav/h winConfig={ mBounds=Rect(0, 0 - 2400, 1080) mAppBounds=Rect(0, 0 - 2272, 1017) mMaxBounds=Rect(0, 0 - 2400, 1080) mDisplayRotation=ROTATION_270 mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_270} as.3 s.180 fontWeightAdjustment=0}
+11-12 13:44:53.757  2978  3112 I VhsRenderer: frame 0: camera 1280x960 sensor=90 front=false displayRotation=3 texMatrix=0.00,-1.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,1.00,1.00,0.00,1.00
+11-12 13:44:54.045  2978  2978 I VHSCAM  : AUTOTEST_BEGIN seconds=8
+11-12 13:45:06.964  2978  3112 I VhsRenderer: frame 30: camera 1280x960 sensor=90 front=false displayRotation=3 texMatrix=0.00,-1.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,1.00,1.00,0.00,1.00
+11-12 13:45:10.909  2978  3112 I VhsRenderer: recording stopped after 34 frames, 11154 ms
+11-12 13:45:10.922  2978  3112 I TapeRecorder: video finished, closing the tape
+11-12 13:45:11.031  2978  3423 I TapeRecorder: audio encoder drained, 271360 samples, microphone=true
+11-12 13:45:14.565  2978  3319 I TapeRecorder: video encoder drained
+11-12 13:45:15.977  2978  3319 I TapeRecorder: recording finished: uri=content://media/external_primary/video/media/1000000017 name=VHS_20261112_13445723.mp4 error=null
+11-12 13:45:16.040  2978  2978 I VHSCAM  : AUTOTEST_DONE uri=content://media/external_primary/video/media/1000000017 name=VHS_20261112_13445723.mp4 error=null
+  overrideConfig={1.0 310mcc260mnc [en_US] ldltr sw411dp w866dp h363dp 420dpi nrml long land finger qwerty/v/v -nav/h winConfig={ mBounds=Rect(0, 0 - 2400, 1080) mAppBounds=Rect(0, 0 - 2272, 1017) mMaxBounds=Rect(0, 0 - 2400, 1080) mDisplayRotation=ROTATION_270 mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_270} as.3 s.187 fontWeightAdjustment=0}
       overrideConfig={0.0 ?mcc0mnc ?localeList ?layoutDir ?swdp ?wdp ?hdp ?density ?lsize ?long ?ldr ?wideColorGamut ?orien ?uimode ?night ?touch ?keyb/?/? ?nav/? winConfig={ mBounds=Rect(0, 0 - 0, 0) mAppBounds=null mMaxBounds=Rect(0, 0 - 0, 0) mDisplayRotation=undefined mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=undefined} ?fontWeightAdjustment}
     mRotation=3 mDeferredRotationPauseCount=0
