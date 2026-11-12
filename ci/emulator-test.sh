@@ -10,6 +10,8 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 
 adb install -r -g "$APK" || exit 1
 adb shell settings put system accelerometer_rotation 0
+# Android's one-time "Viewing full screen" hint would swallow the test's touches.
+adb shell settings put secure immersive_mode_confirmations confirmed
 
 # Turn the virtual phone on its side, the way a camcorder app is held.
 rotate_device() {
