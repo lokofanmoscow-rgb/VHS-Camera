@@ -1,0 +1,4 @@
+--------- beginning of main
+11-12 12:47:30.194  3292  3292 I VHSCAM  : AUTOTEST_BEGIN seconds=8
+11-12 12:47:55.530  3292  3675 I TapeRecorder: recording finished: uri=content://media/external_primary/video/media/1000000017 name=VHS_20261112_12473439.mp4 error=null
+11-12 12:47:56.306  3292  3292 I VHSCAM  : AUTOTEST_DONE uri=content://media/external_primary/video/media/1000000017 name=VHS_20261112_12473439.mp4 error=null

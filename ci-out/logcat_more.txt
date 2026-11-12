@@ -1,0 +1,64 @@
+11-12 12:47:25.921   850   850 I SafetyLabelChangedBroadcastReceiver: received broadcast packageName: com.vhscamera.app, current user: UserHandle{0}, packageChangeEvent: NEW_INSTALL, intent user: UserHandle{0}
+11-12 12:47:26.163   520  1107 V SplashScreenExceptionList: SplashScreen checking exception for package com.vhscamera.app (target sdk:35) -> false
+11-12 12:47:26.166   520  1107 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.vhscamera.app/.MainActivity (has extras)} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+11-12 12:47:26.182   835   866 V WindowManagerShell: Transition requested: android.os.BinderProxy@1f4cba8 TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=8 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.vhscamera.app/.MainActivity } baseActivity=ComponentInfo{com.vhscamera.app/com.vhscamera.app.MainActivity} topActivity=ComponentInfo{com.vhscamera.app/com.vhscamera.app.MainActivity} origActivity=null realActivity=ComponentInfo{com.vhscamera.app/com.vhscamera.app.MainActivity} numActivities=1 lastActiveTime=49136 supportsMultiWindow=false resizeMode=0 isResizeable=false minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{android.window.IWindowContainerToken$Stub$Proxy@73816c1} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 128 - 0, 0) topActivityInfo=ActivityInfo{416ae66 com.vhscamera.app.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isSleeping=false topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden}, remoteTransition = null, displayChange = null }
+11-12 12:47:26.356   520   550 I ActivityManager: Start proc 3292:com.vhscamera.app/u0a192 for next-top-activity {com.vhscamera.app/com.vhscamera.app.MainActivity}
+11-12 12:47:26.476   520  2635 D CoreBackPreview: Window{3749aaf u0 Splash Screen com.vhscamera.app}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@b00bfe4, mPriority=0, mIsAnimationCallback=false}
+11-12 12:47:26.643  3292  3292 I m.vhscamera.app: Using CollectorTypeCC GC.
+11-12 12:47:26.643  3292  3292 W m.vhscamera.app: Unexpected CPU variant for x86: x86_64.
+11-12 12:47:26.643  3292  3292 W m.vhscamera.app: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, tremont, kabylake, default
+11-12 12:47:26.782  3292  3292 E m.vhscamera.app: Not starting debugger since process cannot load the jdwp agent.
+11-12 12:47:27.581  3292  3292 D nativeloader: Configuring clns-6 for other apk /data/app/~~wliI7QmUzC-FMMLi9U32Ww==/com.vhscamera.app-tywy7bWLvdVRIupTV8d92Q==/base.apk. target_sdk_version=35, uses_libraries=, library_path=/data/app/~~wliI7QmUzC-FMMLi9U32Ww==/com.vhscamera.app-tywy7bWLvdVRIupTV8d92Q==/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.vhscamera.app
+11-12 12:47:27.589   520   537 V WindowManager: Sent Transition #7 createdAt=11-12 12:47:26.118 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=8 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.vhscamera.app/.MainActivity } baseActivity=ComponentInfo{com.vhscamera.app/com.vhscamera.app.MainActivity} topActivity=ComponentInfo{com.vhscamera.app/com.vhscamera.app.MainActivity} origActivity=null realActivity=ComponentInfo{com.vhscamera.app/com.vhscamera.app.MainActivity} numActivities=1 lastActiveTime=49136 supportsMultiWindow=false resizeMode=0 isResizeable=false minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{RemoteToken{138af Task{f45c0f4 #8 type=standard A=10192:com.vhscamera.app}}} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 128 - 0, 0) topActivityInfo=ActivityInfo{624a4bc com.vhscamera.app.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isSleeping=false topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden}, remoteTransition = null, displayChange = null }
+11-12 12:47:27.589   520   537 V WindowManager:     info={id=7 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{138af Task{f45c0f4 #8 type=standard A=10192:com.vhscamera.app}}} m=OPEN f=NONE leash=Surface(name=Task=8)/@0x3cd1c18 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0 endFixedRotation=1},{WCT{RemoteToken{d339c45 Task{3001939 #1 type=home}}} m=TO_BACK f=SHOW_WALLPAPER leash=Surface(name=Task=1)/@0xb031438 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 1080, 2400) d=0}]}
+11-12 12:47:27.594   520   806 I SdkSandboxManager: No SDKs used. Skipping SDK data reconcilation for CallingInfo{mUid=10192, mPackageName='com.vhscamera.app, mAppProcessToken='null'}
+11-12 12:47:27.782   520   537 V WindowManager:     info={id=8 t=CHANGE f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{138af Task{f45c0f4 #8 type=standard A=10192:com.vhscamera.app}}} m=CHANGE f=NONE p=WCT{RemoteToken{9c46a4d DefaultTaskDisplayArea@104541606}} leash=Surface(name=Task=8)/@0x3cd1c18 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 2400, 1080) d=0 r=0->1:-1},{WCT{RemoteToken{9c46a4d DefaultTaskDisplayArea@104541606}} m=CHANGE f=NONE p=WCT{RemoteToken{592e902 Display{#0 state=ON size=2400x1080 ROTATION_90}}} leash=Surface(name=DefaultTaskDisplayArea)/@0x4b6089b sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 2400, 1080) d=0 r=0->1:-1},{WCT{RemoteToken{592e902 Display{#0 state=ON size=2400x1080 ROTATION_90}}} m=CHANGE f=IS_DISPLAY leash=Surface(name=WindowedMagnification:0:31)/@0xa0686a5 sb=Rect(0, 0 - 1080, 2400) eb=Rect(0, 0 - 2400, 1080) d=0 r=0->1:3}]}
+11-12 12:47:27.960  3292  3292 V GraphicsEnvironment: ANGLE GameManagerService for com.vhscamera.app: false
+11-12 12:47:27.960  3292  3292 V GraphicsEnvironment: com.vhscamera.app is not listed in per-application setting
+11-12 12:47:28.251  1055  1055 D CarrierSvcBindHelper: onPackageAdded: com.vhscamera.app
+11-12 12:47:28.428  1055  1368 D ImsResolver: maybeAddedImsService, packageName: com.vhscamera.app
+11-12 12:47:28.788  1055  1055 D CarrierSvcBindHelper: onPackageModified: com.vhscamera.app
+11-12 12:47:29.394  1055  1368 D ImsResolver: maybeAddedImsService, packageName: com.vhscamera.app
+11-12 12:47:29.445   520  1276 D CoreBackPreview: Window{b3d2f30 u0 com.vhscamera.app/com.vhscamera.app.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@c19e2e1, mPriority=0, mIsAnimationCallback=false}
+11-12 12:47:29.508   456  2974 I CameraService: CameraService::connect call (PID 3292 "com.vhscamera.app", camera ID 0) and Camera API version 2
+11-12 12:47:29.588   456  2974 I Camera2ClientBase: Camera 0: Opened. Client: com.vhscamera.app (PID 3292, UID 10192)
+11-12 12:47:30.779   520  2074 W InputManager-JNI: Input channel object '3749aaf Splash Screen com.vhscamera.app (client)' was disposed without first being removed with the input manager!
+11-12 12:47:31.624   520   537 I ActivityTaskManager: Displayed com.vhscamera.app/.MainActivity for user 0: +4s581ms
+11-12 12:47:34.604  3292  3292 D MediaCodecList: codecHandlesFormat: no format, so no extra checks
+11-12 12:47:34.614  3292  3688 D CCodec  : allocate(c2.android.avc.encoder)
+11-12 12:47:34.920  3292  3688 I CCodec  : Created component [c2.android.avc.encoder]
+11-12 12:47:35.677  3292  3687 I MediaCodec: MediaCodec will operate in async mode
+11-12 12:47:35.975  3292  3292 D CodecSeeding: Seed: codec c2.android.avc.encoder, mediatype video/avc, overrideable 1
+11-12 12:47:35.976  3292  3292 D CodecSeeding: Seed: codec c2.android.avc.encoder, mediatype video/avc, overrideable 0
+11-12 12:47:35.976  3292  3292 D MediaCodec: shapeMediaFormat: deltas(1): AMessage(what = 0x00000000) = {
+11-12 12:47:35.976  3292  3292 D MediaCodec:     int32_t android._encoding-quality-level = 0
+11-12 12:47:35.976  3292  3292 D MediaCodec:   }
+11-12 12:47:35.999  3292  3687 D MediaCodec: flushMediametrics
+11-12 12:47:35.999  3292  3688 D CCodec  : [c2.android.avc.encoder] buffers are bound to CCodec for this session
+11-12 12:47:36.026  3292  3292 D MediaCodec: keep callback message for reclaim
+11-12 12:47:36.030  3292  3688 D CCodecBufferChannel: [c2.android.avc.encoder#226] Using basic input block pool with poolID 1 => got 1 - OK (0)
+11-12 12:47:36.044  3292  3688 I CCodecBufferChannel: [c2.android.avc.encoder#226] Created output block pool with allocatorID 16 => poolID 26 - OK
+11-12 12:47:36.044  3292  3688 D CCodecBufferChannel: [c2.android.avc.encoder#226] Configured output block pool ids 26 => OK
+11-12 12:47:36.128  3292  3292 D MediaCodecList: codecHandlesFormat: no format, so no extra checks
+11-12 12:47:36.173  3292  3731 D CCodec  : allocate(c2.android.aac.encoder)
+11-12 12:47:36.221  3292  3731 I CCodec  : Created component [c2.android.aac.encoder]
+11-12 12:47:36.396  3292  3292 D CodecSeeding: Seed: codec c2.android.aac.encoder, mediatype audio/mp4a-latm, overrideable 1
+11-12 12:47:36.401  3292  3292 D CodecSeeding: Seed: codec c2.android.aac.encoder, mediatype audio/mp4a-latm, overrideable 0
+11-12 12:47:36.401  3292  3292 D MediaCodec: shapeMediaFormat: deltas(0): AMessage(what = 0x00000000) = {
+11-12 12:47:36.401  3292  3292 D MediaCodec:   }
+11-12 12:47:36.405  3292  3731 D MediaCodec: flushMediametrics
+11-12 12:47:36.405  3292  3731 D CCodec  : [c2.android.aac.encoder] buffers are bound to CCodec for this session
+11-12 12:47:36.654  3292  3731 D CCodecBufferChannel: [c2.android.aac.encoder#752] Created input block pool with allocatorID 16 => poolID 17 - OK (0)
+11-12 12:47:36.682  3292  3731 I CCodecBufferChannel: [c2.android.aac.encoder#752] Created output block pool with allocatorID 16 => poolID 27 - OK
+11-12 12:47:36.736  3292  3731 D CCodecBufferChannel: [c2.android.aac.encoder#752] Configured output block pool ids 27 => OK
+11-12 12:47:42.043  3292  3318 I m.vhscamera.app: NativeAlloc concurrent copying GC freed 20301(1287KB) AllocSpace objects, 16(2580KB) LOS objects, 49% free, 2957KB/5914KB, paused 28us,9us total 564.569ms
+11-12 12:47:53.478  3292  3731 D CCodecBufferChannel: [c2.android.aac.encoder#752] MediaCodec discarded an unknown buffer
+11-12 12:47:53.478  3292  3731 D CCodecBufferChannel: [c2.android.aac.encoder#752] MediaCodec discarded an unknown buffer
+11-12 12:47:53.478  3292  3731 D CCodecBufferChannel: [c2.android.aac.encoder#752] MediaCodec discarded an unknown buffer
+11-12 12:47:53.697  3292  3731 D MediaCodec: flushMediametrics
+11-12 12:47:53.718  3292  3731 D MediaCodec: flushMediametrics
+11-12 12:47:53.718  3292  3731 W MediaCodec: no metrics handle found
+11-12 12:47:55.506  3292  3687 D MediaCodec: flushMediametrics
+11-12 12:47:55.523  3292  3687 D MediaCodec: flushMediametrics
+11-12 12:47:55.523  3292  3687 W MediaCodec: no metrics handle found
+11-12 12:48:01.976   520  1007 W NotificationService: Toast already killed. pkg=com.vhscamera.app token=android.os.BinderProxy@a3b2d09

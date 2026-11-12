@@ -1,0 +1,2 @@
+ls: /sdcard/DCIM/VHS: No such file or directory
+ls: Camera/: No such file or directory
