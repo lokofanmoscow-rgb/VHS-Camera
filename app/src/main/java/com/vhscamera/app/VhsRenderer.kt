@@ -403,6 +403,10 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
 
         updateOsd(showPlay)
         updateCamXform()
+        if (frameIndex == 0L || frameIndex == 30L) {
+            Log.i(TAG, "frame $frameIndex: camera ${camW}x$camH sensor=$sensorOrientation front=$frontFacing " +
+                "displayRotation=$displayRotation texMatrix=${texMatrix.joinToString(",") { "%.2f".format(it) }}")
+        }
 
         val q = quad!!
         GLES20.glEnableVertexAttribArray(0)
@@ -599,7 +603,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         private const val TAPE_H = 720
         private const val ZOOM_SPEED = 0.78f      // magnification per second, measured on the reference tapes
         private const val MAX_ZOOM = 6f
-        private const val WEAVE = 0.35f
+        private const val WEAVE = 0.25f
         private const val PLAY_SECONDS = 3.0f
         private const val START_BAND_SECONDS = 0.55f
         private const val END_FRAMES = 8

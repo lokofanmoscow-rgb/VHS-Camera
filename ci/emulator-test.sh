@@ -11,6 +11,13 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 adb install -r -g "$APK" || exit 1
 adb shell settings put system accelerometer_rotation 0
 
+# Turn the virtual phone on its side, the way a camcorder app is held.
+rotate_device() {
+  adb emu rotate
+  sleep 4
+  adb shell dumpsys window displays | grep -i -m 3 -E "mCurrentRotation|rotation=|mRotation" || true
+}
+
 # run_case NAME [extra am-start args...]: one autotest recording, results in $OUT/NAME_*
 run_case() {
   local name=$1; shift
@@ -26,6 +33,7 @@ run_case() {
   done
   sleep 2
   adb logcat -d -s VHSCAM:* VhsRenderer:* TapeRecorder:* CameraController:* AndroidRuntime:E > "$OUT/${name}_logcat.txt"
+  adb shell dumpsys window displays | grep -i -m 3 -E "mCurrentRotation|rotation=|mRotation" >> "$OUT/${name}_logcat.txt" || true
   adb shell "ls -la '$ALBUM/'" > "$OUT/${name}_files.txt" 2>&1
   adb shell content query --uri content://media/external/video/media \
     --projection _display_name:relative_path:is_pending:duration:width:height:_size > "$OUT/${name}_mediastore.txt" 2>&1
@@ -56,7 +64,11 @@ run_case() {
 }
 
 status=0
+rotate_device
 run_case back || status=1
+# The other landscape orientation (upside-down relative to the first), front camera.
+rotate_device
+rotate_device
 run_case front --ez front true || status=1
 ls -la "$OUT"
 exit $status

@@ -61,15 +61,16 @@ void main() {
     }
 
     // Faint ghost to the right.
-    c = c * 0.955 + 0.075 * texture2D(uCur, s - vec2(12.0 * PX, 0.0)).rgb;
+    c = c * 0.96 + 0.04 * texture2D(uCur, s - vec2(14.0 * PX, 0.0)).rgb;
 
     // Tape dropouts: rows of short, soft bright dashes that break up into colours.
     float drow = floor(uv.y * 150.0);
     vec4 dr = texture2D(uNoise, vec2((drow + 0.5) / 256.0 + uRand.z, uRand.w + 0.61));
     float prob = 0.00012
                + 0.15 * smoothstep(0.915, 0.945, uv.y) * (1.0 - smoothstep(0.970, 0.979, uv.y))
-               + uStatic * 0.30 * (1.0 - smoothstep(0.25, 0.60, uv.y));
-    float rowOn = step(1.0 - prob, dr.x);
+               + uStatic * 0.20 * (1.0 - smoothstep(0.25, 0.60, uv.y));
+    // Two noise channels give 16 bits, enough to make stray dropouts really rare.
+    float rowOn = step(1.0 - prob, (dr.x * 255.0 + dr.y) / 256.0);
     float fr = fract(uv.y * 150.0);
     float thick = smoothstep(0.0, 0.3, fr) * (1.0 - smoothstep(0.7, 1.0, fr));
     float dk = 0.10 + 0.10 * dr.y;                    // dash length scale
@@ -79,7 +80,7 @@ void main() {
     vec3 lit = vec3(texture2D(uNoise, vec2(du.x, dv)).r, d0.r, texture2D(uNoise, vec2(du.z, dv)).r);
     vec3 fx = fract(du * 256.0);
     vec3 ends = smoothstep(0.0, 0.3, fx) * (1.0 - smoothstep(0.7, 1.0, fx));
-    float cut = 0.84 - 0.25 * uStatic;
+    float cut = 0.84 - 0.14 * uStatic;
     vec3 dash = rowOn * thick * ends * step(cut, lit);
     c = mix(c, vec3(0.78) + 0.22 * d0.gba, dash * (0.85 + 0.15 * dr.w));
 
@@ -93,7 +94,7 @@ void main() {
 
     // Fine grain, tape black level and the dark last two lines.
     vec4 g = texture2D(uNoise, uv * vec2(960.0, 720.0) / 256.0 + uRand2.zw);
-    c += (g.r - 0.5) * 0.014;
+    c += (g.r - 0.5) * 0.003;
     // The torn lines are duller and a little darker than the picture.
     c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), 0.45 * hs);
     c *= mix(1.0, 0.74 + 0.22 * hn.z, hs);

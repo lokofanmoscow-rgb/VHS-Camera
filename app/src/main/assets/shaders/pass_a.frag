@@ -17,6 +17,9 @@ uniform vec4 uRand;        // per-frame random numbers
 uniform float uSoft;       // extra softness in output pixels (grows with digital zoom)
 varying vec2 vUv;
 
+const float NOISE_Y = 0.027;
+const float NOISE_C = 0.018;
+
 vec3 cam(vec2 p) {
     vec3 n = uCamXform * vec3(p, 1.0);
     return texture2D(uCam, (uTexMatrix * vec4(n.xy, 0.0, 1.0)).xy).rgb;
@@ -39,16 +42,19 @@ void main() {
     vec4 osd = texture2D(uOsd, p);
     c = c * (1.0 - osd.a) + osd.rgb;
 
-    // Tape noise, added before the bandwidth filter so that it comes out soft.
-    vec4 n = texture2D(uNoise, p / (uInvSize * 256.0) + uRand.xy);
-    vec4 n2 = texture2D(uNoise, p / (uInvSize * 1024.0) + uRand.zw);
-    c += (n.r - 0.5) * 0.036;
-    c.r += (n2.g - 0.5) * 0.030;
-    c.b += (n2.b - 0.5) * 0.036;
+    // Tape noise, added before the bandwidth filter so that it comes out soft:
+    // blobs about two pixels wide and four lines tall.
+    float ny = p.y * 160.0 - 0.5;
+    float r0 = floor(ny);
+    vec2 nq = vec2(p.x / (uInvSize.x * 256.0) + uRand.x, (r0 + 0.5) / 256.0 + uRand.y);
+    vec4 n = mix(texture2D(uNoise, nq), texture2D(uNoise, nq + vec2(0.0, 1.0 / 256.0)), ny - r0);
+    c += (n.r - 0.5) * NOISE_Y;
+    c.r += (n.g - 0.5) * NOISE_C;
+    c.b += (n.b - 0.5) * NOISE_C;
 
     // Black side borders of the tape picture.
-    float inside = step(0.0153, p.x) * step(p.x, 0.9839);
-    c *= inside;
+    float px = p.x / uInvSize.x;
+    c *= clamp(px - 7.5, 0.0, 1.0) * clamp(473.17 - px, 0.0, 1.0);
 
     gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }

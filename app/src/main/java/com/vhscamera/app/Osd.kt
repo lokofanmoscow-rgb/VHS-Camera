@@ -74,13 +74,8 @@ class Osd(fontText: String) {
         for (i in s.indices) {
             val g = glyphs[s[i]] ?: continue
             val x = X0 + i * ADVANCE
-            // Drawn four times, slightly offset, for the heavy strokes of a character generator.
-            for (k in 0 until 4) {
-                val ox = if (k % 2 == 1) BOLD_X else 0f
-                val oy = if (k >= 2) BOLD_Y else 0f
-                dst.set(x + ox, y + oy, x + ox + GLYPH_W, y + oy + GLYPH_H)
-                canvas.drawBitmap(g, null, dst, paint)
-            }
+            dst.set(x, y, x + GLYPH_W, y + GLYPH_H)
+            canvas.drawBitmap(g, null, dst, paint)
         }
     }
 
@@ -107,16 +102,14 @@ class Osd(fontText: String) {
     companion object {
         const val WIDTH = 960
         const val HEIGHT = 720
-        private const val GLYPH_W = 23.0f
-        private const val GLYPH_H = 39.0f
-        private const val BOLD_X = 1.4f
-        private const val BOLD_Y = 1.2f
+        private const val GLYPH_W = 23.5f
+        private const val GLYPH_H = 39.5f
         private const val ADVANCE = 30.2f
-        private const val X0 = 100.3f
-        private const val PLAY_Y = 108.5f
-        private const val LINE1_Y = 528.5f
-        private const val LINE2_Y = 582.0f
-        private val TEXT_COLOR = Color.rgb(222, 222, 215)
+        private const val X0 = 100.8f
+        private const val PLAY_Y = 108.8f
+        private const val LINE1_Y = 528.8f
+        private const val LINE2_Y = 582.3f
+        private val TEXT_COLOR = Color.rgb(210, 210, 203)
         private val ROW = Regex("[.#]{5}")
         private val MONTHS = arrayOf("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
 
