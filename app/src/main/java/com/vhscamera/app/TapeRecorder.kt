@@ -94,6 +94,7 @@ class TapeRecorder(context: Context, private val withMicrophone: Boolean, privat
                     }
                     codec.releaseOutputBuffer(index, false)
                     if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                        Log.i(TAG, "video encoder drained")
                         videoDone = true
                         maybeFinish()
                     }
@@ -143,6 +144,7 @@ class TapeRecorder(context: Context, private val withMicrophone: Boolean, privat
     }
 
     override fun onVideoFinished() {
+        Log.i(TAG, "video finished, closing the tape")
         audioRunning = false
         handler.post {
             try {
@@ -409,6 +411,7 @@ class TapeRecorder(context: Context, private val withMicrophone: Boolean, privat
         } finally {
             try { record?.stop() } catch (_: Throwable) {}
             try { record?.release() } catch (_: Throwable) {}
+            Log.i(TAG, "audio encoder drained, $samples samples, microphone=${withMicrophone}")
             handler.post {
                 audioDone = true
                 maybeFinish()

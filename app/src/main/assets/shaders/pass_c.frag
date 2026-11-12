@@ -44,17 +44,18 @@ void main() {
     dx += inBand * uBand.z * (0.4 + 1.2 * rn.x);
     s.x = mix(s.x, 0.5 + (s.x - 0.5) * (1.0 - uBand.w), inBand);
 
-    // Head-switching band: the last lines are torn sideways and smeared.
-    float hs = smoothstep(0.9800, 0.9862, uv.y);
-    s.y = mix(s.y, 0.9770 + 0.004 * rn.z, hs);
-    s.x = mix(s.x, 0.22 + uv.x * 0.10 + 0.45 * rn.y, hs);
+    // Head-switching band: the last lines are torn sideways, smeared and streaky.
+    float hs = smoothstep(0.9790, 0.9825, uv.y);
+    vec4 hn = texture2D(uNoise, vec2((floor(uv.y * 720.0) + 0.5) / 256.0 + uRand.y, uRand.x + 0.37));
+    s.y = mix(s.y, 0.9720 + 0.006 * hn.x, hs);
+    s.x = mix(s.x, 0.15 + uv.x * 0.12 + 0.60 * hn.y, hs);
 
     s.x += dx;
 
     vec3 c = tape(uCur, s);
 
-    // Interlace: every other line pair still shows the previous field.
-    float odd = mod(floor(uv.y * 360.0), 2.0);
+    // Interlace: every other line still shows a little of the previous field.
+    float odd = mod(floor(uv.y * 720.0), 2.0);
     if (odd * uWeave > 0.0) {
         c = mix(c, tape(uPrev, s), uWeave);
     }
@@ -67,10 +68,12 @@ void main() {
                + 0.055 * smoothstep(0.905, 0.955, uv.y) * (1.0 - hs)
                + uStatic * 0.30 * (1.0 - smoothstep(0.25, 0.60, uv.y));
     float on = step(1.0 - prob, rn2.y);
-    float len = 0.006 + 0.075 * rn2.z * rn2.z;
+    float len = 0.005 + 0.060 * rn2.z * rn2.z * rn2.z;
     float x0 = rn2.w;
-    vec3 dd = abs(vec3(uv.x + 5.0 * PX, uv.x, uv.x - 6.0 * PX) - x0);
-    vec3 dash = on * (0.55 + 0.45 * rn.x) * (1.0 - smoothstep(len * 0.55, len, dd));
+    float fr = fract(uv.y * 240.0);
+    float thick = smoothstep(0.0, 0.3, fr) * (1.0 - smoothstep(0.7, 1.0, fr));
+    vec3 dd = abs(vec3(uv.x + (3.0 + 8.0 * rn.y) * PX, uv.x, uv.x - (3.0 + 8.0 * rn.z) * PX) - x0);
+    vec3 dash = on * thick * (0.60 + 0.40 * rn.x) * (1.0 - smoothstep(len * 0.5, len, dd));
     c = mix(c, vec3(1.0), dash);
 
     // Snow and the tracking bar at tape start.
@@ -84,6 +87,7 @@ void main() {
     // Fine grain, tape black level and the dark last two lines.
     vec4 g = texture2D(uNoise, uv * vec2(960.0, 720.0) / 256.0 + uRand2.zw);
     c += (g.r - 0.5) * 0.014;
+    c *= mix(1.0, 0.55 + 0.65 * hn.z, hs);
     c = 0.056 + 0.930 * clamp(c, 0.0, 1.0);
     c *= 1.0 - 0.45 * smoothstep(0.9965, 1.0, uv.y);
 

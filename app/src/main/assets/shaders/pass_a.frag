@@ -14,7 +14,7 @@ uniform sampler2D uOsd;    // premultiplied on-screen display
 uniform sampler2D uNoise;
 uniform vec2 uInvSize;     // 1 / internal size
 uniform vec4 uRand;        // per-frame random numbers
-uniform float uSoft;       // extra softness of the source (grows with digital zoom)
+uniform float uSoft;       // extra softness in output pixels (grows with digital zoom)
 varying vec2 vUv;
 
 vec3 cam(vec2 p) {
@@ -24,7 +24,7 @@ vec3 cam(vec2 p) {
 
 void main() {
     vec2 p = vUv;
-    vec2 d = uInvSize * (0.25 + uSoft);
+    vec2 d = uInvSize * 0.25 + uSoft * vec2(1.0 / 960.0, 1.0 / 720.0);
     vec3 c = 0.25 * (cam(p + vec2(-d.x, -d.y)) + cam(p + vec2(d.x, -d.y)) +
                      cam(p + vec2(-d.x, d.y)) + cam(p + vec2(d.x, d.y)));
 
@@ -42,7 +42,7 @@ void main() {
     // Tape noise, added before the bandwidth filter so that it comes out soft.
     vec4 n = texture2D(uNoise, p / (uInvSize * 256.0) + uRand.xy);
     vec4 n2 = texture2D(uNoise, p / (uInvSize * 1024.0) + uRand.zw);
-    c += (n.r - 0.5) * 0.050;
+    c += (n.r - 0.5) * 0.036;
     c.r += (n2.g - 0.5) * 0.030;
     c.b += (n2.b - 0.5) * 0.036;
 

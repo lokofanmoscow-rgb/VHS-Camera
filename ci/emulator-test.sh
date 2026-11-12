@@ -23,13 +23,13 @@ sleep 2
 adb exec-out screencap -p > "$OUT/screen_after.png"
 adb logcat -d -s VHSCAM:* VhsRenderer:* TapeRecorder:* CameraController:* AndroidRuntime:E > "$OUT/logcat.txt"
 adb logcat -d | grep -i -E "vhscamera|MediaCodec|c2\.|AudioRecord|FATAL" | tail -300 > "$OUT/logcat_more.txt"
-adb shell ls -la "/sdcard/DCIM/VHS Camera/" > "$OUT/files.txt" 2>&1
+adb shell 'ls -la "/sdcard/DCIM/VHS Camera/"' > "$OUT/files.txt" 2>&1
 adb shell content query --uri content://media/external/video/media \
   --projection _display_name:relative_path:is_pending:duration:width:height:_size > "$OUT/mediastore.txt" 2>&1
 cat "$OUT/logcat.txt" | tail -60
 cat "$OUT/files.txt" "$OUT/mediastore.txt"
 
-F=$(adb shell ls "/sdcard/DCIM/VHS Camera/" | tr -d '\r' | grep -i '\.mp4$' | tail -1)
+F=$(adb shell 'ls "/sdcard/DCIM/VHS Camera/"' | tr -d '\r' | grep -i '\.mp4$' | tail -1)
 if [ -z "$F" ] || [ "$done" != 1 ]; then echo "NO RECORDING PRODUCED"; exit 1; fi
 adb pull "/sdcard/DCIM/VHS Camera/$F" "$OUT/sample.mp4" || exit 1
 

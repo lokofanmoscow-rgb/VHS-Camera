@@ -96,6 +96,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
     private var recLastPts = -1L
     private var recHeavyStart = false
     private var recEndFrame = 0
+    private var recFrames = 0
 
     @Volatile
     var currentZoom = 1f
@@ -182,6 +183,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
             recT0 = -1L
             recLastPts = -1L
             recEndFrame = 0
+            recFrames = 0
             recHeavyStart = random.nextFloat() < 0.6f
             recState = REC_RUNNING
         }
@@ -334,6 +336,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         }
         encoderSurface = null
         recState = REC_IDLE
+        Log.i(TAG, "recording stopped after $recFrames frames, ${recLastPts / 1_000_000} ms")
         val sink = recSink
         recSink = null
         sink?.onVideoFinished()
@@ -347,7 +350,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
             st.updateTexImage()
             st.getTransformMatrix(texMatrix)
             val ts = st.timestamp
-            val dt = if (lastTimestamp != 0L) ((ts - lastTimestamp) / 1e9f).coerceIn(0f, 0.1f) else 1f / 30f
+            val dt = if (lastTimestamp != 0L) ((ts - lastTimestamp) / 1e9f).coerceIn(0f, 0.25f) else 1f / 30f
             lastTimestamp = ts
             render(e, ts, dt)
         } catch (t: Throwable) {
@@ -379,6 +382,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
             pts = ts - recT0
             if (pts <= recLastPts) pts = recLastPts + 1_000_000L
             recLastPts = pts
+            recFrames++
             val t = pts / 1e9f
             showPlay = t < PLAY_SECONDS
             if (recHeavyStart && t > 0.02f && t < 0.17f) staticAmount = 1f
@@ -414,7 +418,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glUniformMatrix3fv(a.u("uCamXform"), 1, false, camXform, 0)
         GLES20.glUniform2f(a.u("uInvSize"), 1f / TAPE_W, 1f / TAPE_H)
         GLES20.glUniform4f(a.u("uRand"), random.nextFloat(), random.nextFloat(), random.nextFloat(), random.nextFloat())
-        GLES20.glUniform1f(a.u("uSoft"), ((zoom - 1.5f) * 0.2f).coerceIn(0f, 1.2f))
+        GLES20.glUniform1f(a.u("uSoft"), ((zoom - 1f) * 0.3f).coerceIn(0f, 1.6f))
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, camTex)
         GLES20.glUniform1i(a.u("uCam"), 0)
@@ -458,7 +462,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glUniform4f(c.u("uRand2"), random.nextFloat(), random.nextFloat(), random.nextFloat(), random.nextFloat())
         GLES20.glUniform1f(c.u("uStatic"), staticAmount)
         GLES20.glUniform4f(c.u("uBand"), bandTop, bandHeight, bandShift, bandSmear)
-        GLES20.glUniform1f(c.u("uWeave"), 0.5f)
+        GLES20.glUniform1f(c.u("uWeave"), WEAVE)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
         frameIndex++
@@ -592,9 +596,10 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         const val OUT_W = 960
         const val OUT_H = 720
         private const val TAPE_W = 480
-        private const val TAPE_H = 360
+        private const val TAPE_H = 720
         private const val ZOOM_SPEED = 0.93f      // magnification per second
         private const val MAX_ZOOM = 6f
+        private const val WEAVE = 0.35f
         private const val PLAY_SECONDS = 3.0f
         private const val START_BAND_SECONDS = 0.55f
         private const val END_FRAMES = 8
