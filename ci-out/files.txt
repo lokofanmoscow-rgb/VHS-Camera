@@ -1,2 +1,2 @@
-ls: /sdcard/DCIM/VHS: No such file or directory
-ls: Camera/: No such file or directory
+total 504
+-rwxrwx--- 1 u0_a173 media_rw 505789 2026-11-12 13:13 VHS_20261112_13130334.mp4
