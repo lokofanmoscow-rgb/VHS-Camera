@@ -338,6 +338,15 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
     private fun buildUi() {
         preview = SurfaceView(this)
         preview.holder.addCallback(this)
+        // Dragging a finger over the picture upsets the tracking there, like nudging the tape.
+        preview.setOnTouchListener { v, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE ->
+                    renderer?.setTouchGlitch((e.y / v.height.coerceAtLeast(1)).coerceIn(0f, 1f))
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> renderer?.setTouchGlitch(-1f)
+            }
+            true
+        }
 
         hud = FrameLayout(this)
         recLabel = TextView(this).apply {

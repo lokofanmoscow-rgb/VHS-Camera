@@ -88,6 +88,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
 
     // options
     private var stampEnabled = true
+    private var touchY = -1f
 
     // recording
     private var recState = REC_IDLE
@@ -163,6 +164,11 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
 
     fun setStampEnabled(enabled: Boolean) {
         handler.post { stampEnabled = enabled }
+    }
+
+    /** A finger on the viewfinder upsets the tracking at that height (0 = top, 1 = bottom; negative = released). */
+    fun setTouchGlitch(y: Float) {
+        handler.post { touchY = y }
     }
 
     fun startRecording(encoderInput: Surface, sink: RecordingSink) {
@@ -399,6 +405,13 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
                 bandShift = 0.04f + 0.10f * k
                 bandSmear = 0.55f
             }
+        }
+
+        if (bandHeight == 0f && touchY >= 0f) {
+            bandHeight = 0.09f
+            bandTop = (touchY - 0.045f).coerceIn(0f, 0.88f)
+            bandShift = 0.03f
+            bandSmear = 0.25f
         }
 
         updateOsd(showPlay)
