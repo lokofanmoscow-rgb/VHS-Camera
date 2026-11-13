@@ -85,7 +85,7 @@ status=0
 # The app drawer, to see the launcher icon.
 adb shell input keyevent KEYCODE_HOME
 sleep 3
-adb shell input swipe 540 1900 540 500 400
+adb shell input keyevent KEYCODE_ALL_APPS
 sleep 3
 adb exec-out screencap -p > "$OUT/launcher.png"
 rotate_device
