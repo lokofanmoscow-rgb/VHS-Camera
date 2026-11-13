@@ -1,0 +1,13 @@
+--------- beginning of main
+11-13 07:01:45.012  3764  3870 I VhsRenderer: frame 0: camera 1280x960 sensor=90 front=false displayRotation=3 texMatrix=0.00,-1.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,1.00,1.00,0.00,1.00
+11-13 07:01:45.609  3764  3764 I VHSCAM  : AUTOTEST_BEGIN seconds=8
+11-13 07:01:58.026  3764  3870 I VhsRenderer: frame 30: camera 1280x960 sensor=90 front=false displayRotation=3 texMatrix=0.00,-1.00,0.00,0.00,-1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,1.00,1.00,0.00,1.00
+11-13 07:02:03.101  3764  3870 I VhsRenderer: recording stopped after 33 frames, 10776 ms
+11-13 07:02:03.101  3764  3870 I TapeRecorder: video finished, closing the tape
+11-13 07:02:03.264  3764  4076 I TapeRecorder: audio encoder drained, 361472 samples, microphone=true
+11-13 07:02:10.688  3764  4002 I TapeRecorder: video encoder drained
+11-13 07:02:12.468  3764  4002 I TapeRecorder: recording finished: uri=content://media/external_primary/video/media/1000000016 name=VHS_20261113_07014892.mp4 error=null
+11-13 07:02:12.489  3764  3764 I VHSCAM  : AUTOTEST_DONE uri=content://media/external_primary/video/media/1000000016 name=VHS_20261113_07014892.mp4 error=null
+  overrideConfig={1.0 310mcc260mnc [en_US] ldltr sw411dp w866dp h363dp 420dpi nrml long land finger qwerty/v/v -nav/h winConfig={ mBounds=Rect(0, 0 - 2400, 1080) mAppBounds=Rect(0, 0 - 2272, 1017) mMaxBounds=Rect(0, 0 - 2400, 1080) mDisplayRotation=ROTATION_270 mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_270} as.3 s.188 fontWeightAdjustment=0}
+      overrideConfig={0.0 ?mcc0mnc ?localeList ?layoutDir ?swdp ?wdp ?hdp ?density ?lsize ?long ?ldr ?wideColorGamut ?orien ?uimode ?night ?touch ?keyb/?/? ?nav/? winConfig={ mBounds=Rect(0, 0 - 0, 0) mAppBounds=null mMaxBounds=Rect(0, 0 - 0, 0) mDisplayRotation=undefined mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=undefined} ?fontWeightAdjustment}
+    mRotation=3 mDeferredRotationPauseCount=0
