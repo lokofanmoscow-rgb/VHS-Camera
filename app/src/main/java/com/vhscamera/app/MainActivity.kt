@@ -79,6 +79,8 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
     private var lastRecordedMs = 0L
     private var lastUri: Uri? = null
 
+    private var lastBarsCheck = 0L
+
     private var autotestSeconds = 0
     private var autotestStarted = false
 
@@ -98,13 +100,22 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
             viewfinder.zoom = renderer?.currentZoom ?: 1f
             viewfinder.invalidate()
             recLamp.lit = state == State.RECORDING && now / 500 % 2 == 0L
+            // Some systems bring the status bar back (for instance when the camera indicator appears).
+            if (now - lastBarsCheck > 1500) {
+                lastBarsCheck = now
+                if (Build.VERSION.SDK_INT >= 30 &&
+                    window.decorView.rootWindowInsets?.isVisible(WindowInsets.Type.statusBars()) == true) {
+                    hideSystemUi()
+                }
+            }
             ui.postDelayed(this, 100)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        @Suppress("DEPRECATION")
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or WindowManager.LayoutParams.FLAG_FULLSCREEN)
         autotestSeconds = intent?.getIntExtra("autotest", 0) ?: 0
         front = intent?.getBooleanExtra("front", false) ?: false
         // The tape hiss takes a moment to synthesise; do it before the first recording needs it.
