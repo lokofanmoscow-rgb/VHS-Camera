@@ -45,8 +45,10 @@ void main() {
     float yd = texture2D(uTex, vUv + vec2(0.0, 2.0 / 480.0)).r;
     y += V_DETAIL * (yc - 0.5 * (yu + yd));
 
-    // CCD smear: a vertical streak through bright lights
-    y += texture2D(uSmear, vec2(vUv.x, 0.5)).r;
+    // CCD smear: a vertical streak through bright lights. It shows when a light is
+    // many stops over the sensor's limit: a lamp in a dim room, where the camera has
+    // turned its gain up; in daylight a clipped white detail is only just over it.
+    y += texture2D(uSmear, vec2(vUv.x, 0.5)).r * mix(0.12, 1.0, smoothstep(0.8, 2.8, uGain));
 
     // noise: FM noise of the tape plus the camera's own, more of it in the dark and
     // when the gain is up; every line on its own, a few samples long
