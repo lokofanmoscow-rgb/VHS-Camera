@@ -244,7 +244,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         ui.post {
             if (renderer == null) return@post
             cameraTexture = surfaceTexture
-            if (resumed) camera?.open(surfaceTexture, front)
+            if (resumed) camera?.open(surfaceTexture, front, look == Look.REAL_VHS)
         }
     }
 
@@ -265,8 +265,8 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         }
     }
 
-    override fun onCameraGain(stops: Float) {
-        renderer?.setCameraGain(stops)
+    override fun onCameraGain(stops: Float, exposureSeconds: Float) {
+        renderer?.setCameraGain(stops, exposureSeconds)
     }
 
     override fun onCameraZoom(ratio: Float) {
@@ -312,7 +312,8 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         showMenu(false)
         try {
             val zoomMotor = { r.zooming }
-            val rec = TapeRecorder(this, hasPermission(Manifest.permission.RECORD_AUDIO), look, zoomMotor, this)
+            val fps = if (look == Look.REAL_VHS) r.fieldRate else 30
+            val rec = TapeRecorder(this, hasPermission(Manifest.permission.RECORD_AUDIO), look, fps, zoomMotor, this)
             val surface = rec.start()
             r.startRecording(surface, rec)
             state = State.RECORDING
@@ -406,6 +407,8 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         look = look.next()
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_LOOK, look.name).apply()
         renderer?.setLook(look)
+        // REAL wants the camera at 60 fps (one frame a field), CLASSIC at 30
+        cameraTexture?.let { st -> camera?.open(st, front, look == Look.REAL_VHS) }
         Log.i(TAG, "look: $look")
         updateControls()
     }
@@ -416,7 +419,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         front = !front
         torch = false
         renderer?.resetZoom()
-        camera?.open(st, front)
+        camera?.open(st, front, look == Look.REAL_VHS)
         updateControls()
     }
 

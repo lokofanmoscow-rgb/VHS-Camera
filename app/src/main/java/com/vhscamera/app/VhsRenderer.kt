@@ -76,8 +76,8 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
     private val texVga = IntArray(2)      // camera picture, this frame and the one before
     private val fboVga = IntArray(2)
     private var vgaCur = 0
-    private val texRCam = IntArray(2)     // REAL: camcorder frame (YIQ), ping-pong for the lag
-    private val fboRCam = IntArray(2)
+    private val texRCam = IntArray(1)     // REAL: one camcorder field (YIQ)
+    private val fboRCam = IntArray(1)
     private val texRSmear = IntArray(1)
     private val fboRSmear = IntArray(1)
     private val texRY = IntArray(1)
@@ -110,6 +110,10 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
     private var cameraMaxZoom = 1f
     private var lastCameraZoom = 1f
     private var gainStops = 0f
+    @Volatile private var exposureSeconds = 1f / 60f
+    // REAL: the camera's frame interval, smoothed, and whether it gives 60 fields a second
+    private var frameInterval = 1f / 30f
+    @Volatile private var fields60 = false
 
     // options
     private var stampEnabled = true
@@ -206,9 +210,15 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
     }
 
     /** Camera gain in stops above daylight, from the camera's own exposure (REAL_VHS noise). */
-    fun setCameraGain(stops: Float) {
-        handler.post { gainStops += (stops - gainStops) * 0.15f }
+    fun setCameraGain(stops: Float, exposure: Float) {
+        handler.post {
+            gainStops += (stops - gainStops) * 0.15f
+            exposureSeconds = exposure
+        }
     }
+
+    /** REAL: fields a second the recording gets - 60 when the camera delivers 60 fps, else 30. */
+    val fieldRate: Int get() = if (fields60) 60 else 30
 
     fun setStampEnabled(enabled: Boolean) {
         handler.post { stampEnabled = enabled }
@@ -338,18 +348,10 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
 
         newTarget(VGA_W, VGA_H, texVga, fboVga, 0)
         newTarget(VGA_W, VGA_H, texVga, fboVga, 1)
-        newTarget(REAL_W, REAL_H, texRCam, fboRCam, 0)
-        newTarget(REAL_W, REAL_H, texRCam, fboRCam, 1)
-        for (f in fboRCam) {
-            // a neutral starting frame for the lag: black, no colour
-            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, f)
-            GLES20.glViewport(0, 0, REAL_W, REAL_H)
-            GLES20.glClearColor(0f, 0.5f, 0.5f, 1f)
-            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        }
+        newTarget(REAL_W, REAL_FIELD, texRCam, fboRCam, 0)
         newTarget(REAL_W, 1, texRSmear, fboRSmear, 0)
-        newTarget(REAL_W, REAL_H, texRY, fboRY, 0)
-        newTarget(REAL_CW, REAL_H, texRC, fboRC, 0)
+        newTarget(REAL_W, REAL_FIELD, texRY, fboRY, 0)
+        newTarget(REAL_CW, REAL_FIELD, texRC, fboRC, 0)
         newTarget(TAPE_W, TAPE_H, texA, fboA, 0)
         newTarget(TAPE_W, TAPE_H, texB, fboB, 0)
         newTarget(OUT_W, OUT_H, texC, fboC, 0)
@@ -434,6 +436,9 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
             val ts = st.timestamp
             val dt = if (lastTimestamp != 0L) ((ts - lastTimestamp) / 1e9f).coerceIn(0f, 0.25f) else 1f / 30f
             lastTimestamp = ts
+            // a camera running at 60 fps gives REAL its 60 fields a second
+            frameInterval += (dt - frameInterval) * 0.1f
+            fields60 = if (fields60) frameInterval < 0.025f else frameInterval < 0.019f
             render(e, ts, dt)
         } catch (t: Throwable) {
             Log.e(TAG, "frame failed", t)
@@ -623,21 +628,25 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
 
     private fun renderReal(colourLock: Float, wobble: Float) {
         val prevCam = 1 - vgaCur
-        val cur = (frameIndex % 2).toInt()
-        val prev = 1 - cur
         val digital = (zoom / lastCameraZoom.coerceAtLeast(1f)).coerceAtLeast(1f)
+        // At 60 fps every camera frame is a field of its own, the two fields taking turns;
+        // at 30 fps each frame is shown as one field. A phone exposes far shorter than a
+        // camcorder's 1/60 s in daylight: a share of the frame before stands in for the blur.
+        val field = if (fields60) (frameIndex % 2).toFloat() else 0f
+        val shutter = if (fields60) SHUTTER_BLEND * (1f - (exposureSeconds * 60f).coerceIn(0f, 1f)) else 0f
 
-        // 1: the camcorder - fields, tone, colour, date stamp, lag
+        // 1: the camcorder - one field, tone, colour, date stamp
         val rc = progRCam!!
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboRCam[cur])
-        GLES20.glViewport(0, 0, REAL_W, REAL_H)
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboRCam[0])
+        GLES20.glViewport(0, 0, REAL_W, REAL_FIELD)
         rc.use()
         GLES20.glUniform1f(rc.u("uFlipY"), 1f)
         GLES20.glUniform1f(rc.u("uZoom"), digital)
         GLES20.glUniform1f(rc.u("uGain"), gainStops)
+        GLES20.glUniform1f(rc.u("uField"), field)
+        GLES20.glUniform1f(rc.u("uShutter"), shutter)
         bindTex(0, texVga[vgaCur], rc.u("uCur"))
         bindTex(1, texVga[prevCam], rc.u("uPrevCam"))
-        bindTex(2, texRCam[prev], rc.u("uPrevOut"))
         bindTex(3, osdTex, rc.u("uOsd"))
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
@@ -647,16 +656,16 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glViewport(0, 0, REAL_W, 1)
         sm.use()
         GLES20.glUniform1f(sm.u("uFlipY"), 1f)
-        bindTex(0, texRCam[cur], sm.u("uTex"))
+        bindTex(0, texRCam[0], sm.u("uTex"))
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
         // 3: luminance on tape
         val ry = progRY!!
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboRY[0])
-        GLES20.glViewport(0, 0, REAL_W, REAL_H)
+        GLES20.glViewport(0, 0, REAL_W, REAL_FIELD)
         ry.use()
         GLES20.glUniform1f(ry.u("uFlipY"), 1f)
-        bindTex(0, texRCam[cur], ry.u("uTex"))
+        bindTex(0, texRCam[0], ry.u("uTex"))
         bindTex(1, texRSmear[0], ry.u("uSmear"))
         bindTex(2, noiseTex, ry.u("uNoise"))
         GLES20.glUniform4f(ry.u("uRand"), random.nextFloat(), random.nextFloat(), random.nextFloat(), random.nextFloat())
@@ -666,10 +675,10 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         // 4: colour on tape
         val rq = progRC!!
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboRC[0])
-        GLES20.glViewport(0, 0, REAL_CW, REAL_H)
+        GLES20.glViewport(0, 0, REAL_CW, REAL_FIELD)
         rq.use()
         GLES20.glUniform1f(rq.u("uFlipY"), 1f)
-        bindTex(0, texRCam[cur], rq.u("uTex"))
+        bindTex(0, texRCam[0], rq.u("uTex"))
         bindTex(2, noiseTex, rq.u("uNoise"))
         GLES20.glUniform4f(rq.u("uRand"), random.nextFloat(), random.nextFloat(), random.nextFloat(), random.nextFloat())
         GLES20.glUniform1f(rq.u("uGain"), gainStops)
@@ -688,6 +697,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glUniform4f(ro.u("uRand"), random.nextFloat(), random.nextFloat(), random.nextFloat(), random.nextFloat())
         GLES20.glUniform4f(ro.u("uRand2"), random.nextFloat(), random.nextFloat(), random.nextFloat(), random.nextFloat())
         GLES20.glUniform1f(ro.u("uWobble"), wobble)
+        GLES20.glUniform1f(ro.u("uField"), field)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
     }
 
@@ -810,7 +820,8 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         private const val MAX_ZOOM_REAL = 10f      // a camcorder's 10x power zoom
         private const val ZOOM_RATE_REAL = 0.66f  // ln(10) in 3.5 s: wide to tele
         private const val REAL_W = 640            // REAL: samples per line of the video frame
-        private const val REAL_H = 480            // REAL: lines (two fields of 240)
+        private const val REAL_FIELD = 240        // REAL: lines of one field
+        private const val SHUTTER_BLEND = 0.25f   // REAL: most of the frame before mixed in for a 1/60 s shutter
         private const val REAL_CW = 160           // REAL: colour samples per line
         private const val PLAY_SECONDS = 3.0f
         private const val START_BAND_SECONDS = 0.55f

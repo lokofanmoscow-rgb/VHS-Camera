@@ -36,6 +36,7 @@ class TapeRecorder(
     context: Context,
     private val withMicrophone: Boolean,
     private val look: Look,
+    private val frameRate: Int,
     private val zoomMotor: () -> Boolean,
     private val listener: Listener,
 ) :
@@ -167,12 +168,14 @@ class TapeRecorder(
         for (high in booleanArrayOf(true, false)) {
             val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, VhsRenderer.OUT_W, VhsRenderer.OUT_H).apply {
                 setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-                setInteger(MediaFormat.KEY_BIT_RATE, VIDEO_BITRATE)
-                setInteger(MediaFormat.KEY_FRAME_RATE, 30)
+                setInteger(MediaFormat.KEY_BIT_RATE, if (frameRate > 30) VIDEO_BITRATE_60 else VIDEO_BITRATE)
+                setInteger(MediaFormat.KEY_FRAME_RATE, frameRate)
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
                 if (high) {
                     setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh)
-                    setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel31)
+                    // 960x720 at 60 fps is past level 3.1
+                    setInteger(MediaFormat.KEY_LEVEL,
+                        if (frameRate > 30) MediaCodecInfo.CodecProfileLevel.AVCLevel32 else MediaCodecInfo.CodecProfileLevel.AVCLevel31)
                 }
             }
             val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
@@ -503,6 +506,7 @@ class TapeRecorder(
         private const val TAG = "TapeRecorder"
         const val ALBUM = "VHS Camera"
         private const val VIDEO_BITRATE = 8_000_000
+        private const val VIDEO_BITRATE_60 = 11_000_000
         private const val AUDIO_BITRATE = 128_000
         private const val BLOCK = 1024
         private const val AUDIO_WAIT_US = 1_500_000L

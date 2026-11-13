@@ -24,8 +24,11 @@ class CameraController(context: Context, private val listener: Listener) {
         /** Camera thread, before frames start: the geometry of the stream and how far it can zoom. */
         fun onCameraConfigured(width: Int, height: Int, sensorOrientation: Int, front: Boolean, maxZoom: Float)
         fun onCameraError(message: String)
-        /** Camera thread, a few times a second: how much gain a camcorder would need here, in stops. */
-        fun onCameraGain(stops: Float)
+        /**
+         * Camera thread, a few times a second: how much gain a camcorder would need here, in
+         * stops, and the exposure time the phone is using, in seconds.
+         */
+        fun onCameraGain(stops: Float, exposureSeconds: Float)
     }
 
     private val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -66,16 +69,31 @@ class CameraController(context: Context, private val listener: Listener) {
         return null
     }
 
-    private fun chooseSize(sizes: Array<Size>): Size {
+    /** Largest stream size for the picture; at 60 fps only sizes the camera can stream that fast. */
+    private fun chooseSize(sizes: Array<Size>, map: android.hardware.camera2.params.StreamConfigurationMap?, fast: Boolean): Size {
+        if (fast && map != null) {
+            val quick = sizes.filter {
+                try {
+                    map.getOutputMinFrameDuration(SurfaceTexture::class.java, it) in 1..FRAME_60_NS
+                } catch (_: Throwable) {
+                    false
+                }
+            }
+            if (quick.isNotEmpty()) return chooseSize(quick.toTypedArray(), null, false)
+        }
         val fourThirds = sizes.filter { abs(it.width.toFloat() / it.height - 4f / 3f) < 0.02f && it.width in 640..1920 }
         fourThirds.maxByOrNull { it.width * it.height }?.let { return it }
         val any = sizes.filter { it.width <= 1920 }
         return any.maxByOrNull { it.width * it.height } ?: sizes[0]
     }
 
-    /** Opens the camera facing the given way and starts streaming into [texture]. */
+    /**
+     * Opens the camera facing the given way and starts streaming into [texture]. With
+     * [fields60] the camera runs at 60 fps where it can: one frame for every field of a
+     * camcorder.
+     */
     @SuppressLint("MissingPermission")
-    fun open(texture: SurfaceTexture, front: Boolean) {
+    fun open(texture: SurfaceTexture, front: Boolean, fields60: Boolean = false) {
         val gen = ++generation
         handler.post {
             closeNow()
@@ -93,14 +111,17 @@ class CameraController(context: Context, private val listener: Listener) {
                     listener.onCameraError("camera has no preview sizes")
                     return@post
                 }
-                val size = chooseSize(sizes)
+                val fpsRanges = ch.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+                val fast = fields60 && fpsRanges?.any { it.upper >= 60 } == true
+                val size = chooseSize(sizes, map, fast)
+                val fpsRange = pickFpsRange(fpsRanges, fast)
+                Log.i(TAG, "camera $id: ${size.width}x${size.height}, fps $fpsRange (60 fields wanted: $fields60)")
                 val orientation = ch.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90
                 hasFlash = ch.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
                 zoomRange = if (Build.VERSION.SDK_INT >= 30) ch.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE) else null
                 activeArray = ch.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
                 maxDigitalZoom = ch.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM) ?: 1f
                 val maxZoom = (zoomRange?.upper ?: maxDigitalZoom).coerceAtLeast(1f)
-                val fpsRanges = ch.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
                 val afModes = ch.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)
 
                 texture.setDefaultBufferSize(size.width, size.height)
@@ -128,7 +149,7 @@ class CameraController(context: Context, private val listener: Listener) {
                                         if (afModes != null && afModes.contains(CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)) {
                                             b.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
                                         }
-                                        pickFpsRange(fpsRanges)?.let { b.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, it) }
+                                        fpsRange?.let { b.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, it) }
                                         // A camcorder on the shoulder shakes; electronic stabilisation would also crop the frame.
                                         b.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
                                             CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
@@ -139,12 +160,22 @@ class CameraController(context: Context, private val listener: Listener) {
                                         s.setRepeatingRequest(b.build(), exposureWatcher, handler)
                                     } catch (t: Throwable) {
                                         Log.e(TAG, "start preview", t)
-                                        listener.onCameraError(t.message ?: "camera start failed")
+                                        if (fast) {
+                                            // the camera would not stream that fast after all: plain 30 fps
+                                            open(texture, front, false)
+                                        } else {
+                                            listener.onCameraError(t.message ?: "camera start failed")
+                                        }
                                     }
                                 }
 
                                 override fun onConfigureFailed(s: CameraCaptureSession) {
-                                    listener.onCameraError("camera session failed")
+                                    if (fast && gen == generation) {
+                                        Log.w(TAG, "60 fps session failed, back to 30 fps")
+                                        open(texture, front, false)
+                                    } else {
+                                        listener.onCameraError("camera session failed")
+                                    }
                                 }
                             }, handler)
                         } catch (t: Throwable) {
@@ -171,9 +202,17 @@ class CameraController(context: Context, private val listener: Listener) {
         }
     }
 
-    /** Camcorders run at a fixed field rate: prefer a locked 30 fps. */
-    private fun pickFpsRange(ranges: Array<Range<Int>>?): Range<Int>? {
+    /**
+     * Camcorders run at a fixed field rate: a locked 60 fps for one frame a field where the
+     * camera has it (a 60 fps camera also keeps the exposure within 1/60 s, like a
+     * camcorder), else a locked 30 fps.
+     */
+    private fun pickFpsRange(ranges: Array<Range<Int>>?, fast: Boolean): Range<Int>? {
         if (ranges == null || ranges.isEmpty()) return null
+        if (fast) {
+            ranges.firstOrNull { it.lower == 60 && it.upper == 60 }?.let { return it }
+            ranges.filter { it.upper == 60 }.maxByOrNull { it.lower }?.let { return it }
+        }
         val at30 = ranges.filter { it.upper == 30 }
         return at30.maxByOrNull { it.lower } ?: ranges.filter { it.upper >= 24 }.minByOrNull { it.upper } ?: ranges.maxByOrNull { it.upper }
     }
@@ -219,7 +258,7 @@ class CameraController(context: Context, private val listener: Listener) {
             val exposure = result.get(android.hardware.camera2.CaptureResult.SENSOR_EXPOSURE_TIME) ?: return
             val iso60 = iso * (exposure / 1e9 * 60.0)
             val stops = (Math.log(iso60 / 200.0) / Math.log(2.0)).toFloat().coerceIn(0f, 6f)
-            listener.onCameraGain(stops)
+            listener.onCameraGain(stops, (exposure / 1e9).toFloat())
         }
     }
 
@@ -274,5 +313,6 @@ class CameraController(context: Context, private val listener: Listener) {
 
     companion object {
         private const val TAG = "CameraController"
+        private const val FRAME_60_NS = 16_700_000L
     }
 }
