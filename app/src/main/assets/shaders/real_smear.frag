@@ -5,13 +5,13 @@ precision mediump float;
 #endif
 
 // REAL VHS: CCD vertical smear. For every column, how much of it is taken by small,
-// very bright sources (a lamp, the sun glinting on chrome): only highlights that are
-// narrow (no white a few samples to either side) and short count, so a white wall or
-// a blown sky does not smear - a sensor only just over its limit does not leak.
+// very bright sources (a lamp, a glint): only blown-out spots that are narrow and sit
+// in clearly darker surroundings count, so a white wall, white paper or a blown sky
+// does not smear - a sensor only just over its limit does not leak.
 uniform sampler2D uTex;   // camera pass output (Y in r)
 varying vec2 vUv;
 float white(vec2 q) { return smoothstep(0.985, 0.998, texture2D(uTex, q).r); }
-float bright(vec2 q) { return smoothstep(0.80, 0.92, texture2D(uTex, q).r); }
+float bright(vec2 q) { return smoothstep(0.50, 0.68, texture2D(uTex, q).r); }
 void main() {
     float s = 0.0;
     vec2 side = vec2(8.0 / 640.0, 0.0);
