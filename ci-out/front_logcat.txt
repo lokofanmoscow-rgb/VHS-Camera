@@ -1,0 +1,14 @@
+--------- beginning of main
+11-13 15:46:12.683  5401  5401 I VHSCAM  : AUTOTEST_BEGIN seconds=8
+11-13 15:46:13.397  5401  5458 I VhsRenderer: frame 0: camera 1920x1440 sensor=270 front=true displayRotation=1 look=REAL_VHS texMatrix=0.00,-1.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,1.00,0.00,1.00
+11-13 15:46:31.124  5401  5458 I VhsRenderer: recording stopped after 17 frames, 7747 ms
+11-13 15:46:31.127  5401  5458 I TapeRecorder: video finished, closing the tape
+11-13 15:46:31.974  5401  5629 I TapeRecorder: audio encoder drained, 193536 samples, microphone=true
+11-13 15:46:33.546  5401  5458 I VhsRenderer: frame 30: camera 1920x1440 sensor=270 front=true displayRotation=1 look=REAL_VHS texMatrix=0.00,-1.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,1.00,0.00,1.00
+11-13 15:46:39.810  5401  5584 I TapeRecorder: video encoder drained
+11-13 15:46:44.689  5401  5584 I TapeRecorder: recording finished: uri=content://media/external_primary/video/media/1000000018 name=VHS_20261113_15462063.mp4 error=null
+11-13 15:46:44.866  5401  5401 I VHSCAM  : AUTOTEST_DONE uri=content://media/external_primary/video/media/1000000018 name=VHS_20261113_15462063.mp4 error=null
+11-13 15:47:19.156  5401  5401 I VHSCAM  : look: CLASSIC
+  overrideConfig={1.0 310mcc260mnc [en_US] ldltr sw411dp w866dp h363dp 420dpi nrml long land finger qwerty/v/v -nav/h winConfig={ mBounds=Rect(0, 0 - 2400, 1080) mAppBounds=Rect(128, 0 - 2400, 1017) mMaxBounds=Rect(0, 0 - 2400, 1080) mDisplayRotation=ROTATION_90 mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_90} as.3 s.239 fontWeightAdjustment=0}
+      overrideConfig={0.0 ?mcc0mnc ?localeList ?layoutDir ?swdp ?wdp ?hdp ?density ?lsize ?long ?ldr ?wideColorGamut ?orien ?uimode ?night ?touch ?keyb/?/? ?nav/? winConfig={ mBounds=Rect(0, 0 - 0, 0) mAppBounds=null mMaxBounds=Rect(0, 0 - 0, 0) mDisplayRotation=undefined mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=undefined} ?fontWeightAdjustment}
+    mRotation=1 mDeferredRotationPauseCount=0
