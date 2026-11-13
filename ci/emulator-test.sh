@@ -30,12 +30,16 @@ run_case() {
   local done=0
   for i in $(seq 1 150); do
     if adb logcat -d -s VHSCAM:I | grep -q AUTOTEST_DONE; then done=1; break; fi
-    # Drag a finger down the viewfinder while recording: the tracking glitch must not break anything.
-    case "$i" in 6|9|12|15|18) (adb shell input swipe 1200 250 1200 850 2000 &) ;; esac
     if [ "$i" = 14 ]; then adb exec-out screencap -p > "$OUT/${name}_screen_rec.png"; fi
     sleep 1
   done
   sleep 2
+  # Open the on-screen menu (MENU key, top of the left side of the body) for a look at it.
+  adb exec-out screencap -p > "$OUT/${name}_screen_idle.png"
+  adb shell input tap 240 270
+  sleep 1
+  adb exec-out screencap -p > "$OUT/${name}_screen_menu.png"
+  adb shell input tap 240 270
   adb logcat -d -s VHSCAM:* VhsRenderer:* TapeRecorder:* CameraController:* AndroidRuntime:E > "$OUT/${name}_logcat.txt"
   adb shell dumpsys window displays | grep -i -m 3 -E "mCurrentRotation|rotation=|mRotation" >> "$OUT/${name}_logcat.txt" || true
   adb shell "ls -la '$ALBUM/'" > "$OUT/${name}_files.txt" 2>&1

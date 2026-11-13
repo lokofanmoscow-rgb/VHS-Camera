@@ -13,12 +13,12 @@ import kotlin.math.tanh
 /**
  * VHS linear-track sound, 48 kHz mono.
  *
- * The microphone is band-limited and kept quiet with a soft ceiling, gets a touch of wow
- * and flutter, and is laid over the tape's own noise bed: hiss with the measured spectrum
- * (pink below 2 kHz, flat to 6.5 kHz, rolling off above) that buzzes slightly at the head
- * drum rate, plus mains hum at 60 Hz and its harmonics.
+ * The microphone is band-limited, gets a touch of wow and flutter and is laid over the
+ * tape's own noise bed. The bed is synthesised from measurements of real tape noise:
+ * a hiss with the measured spectrum (gently "breathing", and buzzing slightly at the head
+ * drum rate) plus the buzz itself, a comb of tones from 30 Hz up to 1.6 kHz.
  */
-class VhsAudio(seed: Long = 20250309L) {
+class VhsAudio(seed: Long = System.nanoTime()) {
     private val rnd = Random(seed)
 
     // microphone chain
@@ -33,36 +33,55 @@ class VhsAudio(seed: Long = 20250309L) {
     private var wowPhase = rnd.nextDouble() * 2 * PI
     private var flutterPhase = rnd.nextDouble() * 2 * PI
 
-    // noise bed
-    private val hiss: FloatArray = makeHiss(rnd)
-    private var hissPos = rnd.nextInt(HISS_SIZE)
-    private val humEven = FloatArray(HUM_PERIOD)
-    private val humOdd = FloatArray(HUM_PERIOD)
-    private var humPos = 0
-    private var humGainEven = 1f
-    private var humGainOdd = 1f
-    private var humTargetEven = 1f
-    private var humTargetOdd = 1f
-    private var humCountdown = 0
+    // hiss
+    private val hiss: FloatArray = hissLoop
+    private var hissPos = rnd.nextInt(hiss.size)
+    private var hissGain = 1f
+    private var hissTarget = 1f
+
+    // buzz: one rotating phasor per tone
+    private val n = TONES.size
+    private val oscC = DoubleArray(n)
+    private val oscS = DoubleArray(n)
+    private val rotC = DoubleArray(n)
+    private val rotS = DoubleArray(n)
+    private val amp = FloatArray(n)
+    private val gain = FloatArray(n) { 1f }
+    private val gainTarget = FloatArray(n) { 1f }
+    private var driftCountdown = 0
     private var fadeIn = 0
 
     init {
-        for (h in HUM_LEVELS_DB.indices) {
-            val k = h + 1
-            val amp = 10.0.pow(HUM_LEVELS_DB[h] / 20.0) * sqrt(2.0)
-            val phase = rnd.nextDouble() * 2 * PI
-            val table = if (k % 2 == 0) humEven else humOdd
-            for (i in 0 until HUM_PERIOD) {
-                table[i] += (amp * sin(2 * PI * k * i / HUM_PERIOD + phase)).toFloat()
-            }
+        for (i in 0 until n) {
+            val w = 2 * PI * TONES[i][0] / SAMPLE_RATE
+            rotC[i] = cos(w)
+            rotS[i] = sin(w)
+            val p = rnd.nextDouble() * 2 * PI
+            oscC[i] = cos(p)
+            oscS[i] = sin(p)
+            amp[i] = (10.0.pow(TONES[i][1] / 20.0) * sqrt(2.0)).toFloat()
         }
     }
 
     /** Processes [count] microphone samples of [pcm] in place. */
     fun process(pcm: ShortArray, count: Int) {
-        for (i in 0 until count) {
+        // Slow drift of the noise, re-aimed a few times per second.
+        driftCountdown -= count
+        if (driftCountdown <= 0) {
+            driftCountdown = 12000 + rnd.nextInt(36000)
+            hissTarget = 1f + 0.07f * (rnd.nextFloat() * 2f - 1f)
+            for (i in 0 until n) gainTarget[i] = 10.0.pow((rnd.nextDouble() * 2 - 1) * TONE_WANDER_DB / 20.0).toFloat()
+        }
+        // Keep the phasors on the unit circle.
+        for (i in 0 until n) {
+            val r = 1.0 / sqrt(oscC[i] * oscC[i] + oscS[i] * oscS[i])
+            oscC[i] *= r
+            oscS[i] *= r
+        }
+
+        for (k in 0 until count) {
             // microphone -> tape
-            var x = pcm[i] / 32768f * MIC_GAIN
+            var x = pcm[k] / 32768f * MIC_GAIN
             x = highPass.run(x)
             x = wowFlutter(x)
             x = tone.run(x)
@@ -70,27 +89,30 @@ class VhsAudio(seed: Long = 20250309L) {
             x = lowPassB.run(x)
             x = CEILING * tanh(x / CEILING)
 
-            // tape noise bed
-            val buzz = 1f + 0.10f * humOdd[humPos] * BUZZ_NORM + 0.06f * humEven[humPos] * BUZZ_NORM
-            var n = hiss[hissPos] * buzz
-            if (++hissPos >= HISS_SIZE) hissPos = 0
-            if (--humCountdown <= 0) {
-                humCountdown = 4800 + rnd.nextInt(24000)
-                humTargetEven = 0.55f + 0.75f * rnd.nextFloat()
-                humTargetOdd = 0.55f + 0.75f * rnd.nextFloat()
+            // buzz comb
+            var buzz = 0f
+            for (i in 0 until n) {
+                val c = oscC[i] * rotC[i] - oscS[i] * rotS[i]
+                val s = oscS[i] * rotC[i] + oscC[i] * rotS[i]
+                oscC[i] = c
+                oscS[i] = s
+                gain[i] += (gainTarget[i] - gain[i]) * 0.00004f
+                buzz += amp[i] * gain[i] * s.toFloat()
             }
-            humGainEven += (humTargetEven - humGainEven) * 0.00012f
-            humGainOdd += (humTargetOdd - humGainOdd) * 0.00012f
-            n += humEven[humPos] * humGainEven + humOdd[humPos] * humGainOdd
-            if (++humPos >= HUM_PERIOD) humPos = 0
 
-            var y = x + n
+            // hiss, breathing slowly and buzzing a little with the head drum
+            hissGain += (hissTarget - hissGain) * 0.00004f
+            val am = 1f + 0.05f * oscS[IDX_60].toFloat() + 0.03f * oscS[IDX_120].toFloat()
+            val h = hiss[hissPos] * hissGain * am
+            if (++hissPos >= hiss.size) hissPos = 0
+
+            var y = x + h + buzz
             if (fadeIn < FADE_SAMPLES) {
                 y *= fadeIn / FADE_SAMPLES.toFloat()
                 fadeIn++
             }
-            val s = (y * 32767f).toInt()
-            pcm[i] = (if (s > 32767) 32767 else if (s < -32768) -32768 else s).toShort()
+            val v = (y * 32767f).toInt()
+            pcm[k] = (if (v > 32767) 32767 else if (v < -32768) -32768 else v).toShort()
         }
     }
 
@@ -161,32 +183,120 @@ class VhsAudio(seed: Long = 20250309L) {
 
     companion object {
         const val SAMPLE_RATE = 48000
-        private const val MIC_GAIN = 0.35f
-        private const val CEILING = 0.18f
+        private const val MIC_GAIN = 0.7f
+        private const val CEILING = 0.5f            // only keeps very loud sound from clipping
         private const val FADE_SAMPLES = 720
         private const val DELAY_SIZE = 256
         private const val DELAY_MASK = DELAY_SIZE - 1
-        private const val HISS_SIZE = 1 shl 17
-        private const val HUM_PERIOD = 800          // one 60 Hz cycle at 48 kHz
-        private const val BUZZ_NORM = 900f          // brings the hum tables to roughly +-1 for the buzz
-        private const val HISS_RMS_DB = -62.6
+        private const val HISS_SIZE = 1 shl 19      // 10.9 s, long enough not to be heard repeating
+        private const val HISS_RMS_DB = -64.9
+        private const val TONE_WANDER_DB = 1.5
+        private const val IDX_60 = 1
+        private const val IDX_120 = 3
 
-        /** RMS level of each 60 Hz harmonic, dBFS, as measured on the reference tapes. */
-        private val HUM_LEVELS_DB = doubleArrayOf(
-            -72.2, -63.9, -76.8, -69.1, -82.5, -78.7, -82.6, -81.6, -79.2, -83.1, -87.4, -84.0,
+        /** The buzz: frequency (Hz) and RMS level (dBFS) of each tone of the comb. */
+        private val TONES = arrayOf(
+            doubleArrayOf(30.0, -81.4),
+            doubleArrayOf(60.1, -72.0),
+            doubleArrayOf(90.1, -72.8),
+            doubleArrayOf(120.1, -64.0),
+            doubleArrayOf(180.2, -77.2),
+            doubleArrayOf(240.2, -69.5),
+            doubleArrayOf(299.6, -83.0),
+            doubleArrayOf(359.6, -78.6),
+            doubleArrayOf(419.7, -83.5),
+            doubleArrayOf(480.5, -82.2),
+            doubleArrayOf(539.8, -79.1),
+            doubleArrayOf(599.9, -83.8),
+            doubleArrayOf(659.2, -88.7),
+            doubleArrayOf(719.2, -84.1),
+            doubleArrayOf(779.3, -91.3),
+            doubleArrayOf(839.4, -86.1),
+            doubleArrayOf(898.7, -87.0),
+            doubleArrayOf(958.7, -86.5),
+            doubleArrayOf(1018.8, -90.7),
+            doubleArrayOf(1078.9, -90.1),
+            doubleArrayOf(1138.9, -89.5),
+            doubleArrayOf(1198.2, -90.6),
+            doubleArrayOf(1258.3, -92.2),
+            doubleArrayOf(1318.4, -89.8),
+            doubleArrayOf(1378.4, -90.9),
+            doubleArrayOf(1438.5, -91.2),
+            doubleArrayOf(1497.8, -92.4),
+            doubleArrayOf(1617.9, -93.2),
         )
 
-        /** Hiss power spectral density: frequency (Hz) -> level (dB/Hz), from the reference tapes. */
+        /** Hiss power spectral density between the tones: frequency (Hz) -> level (dB/Hz). */
         private val HISS_SHAPE = arrayOf(
-            doubleArrayOf(20.0, -91.0), doubleArrayOf(30.0, -89.5), doubleArrayOf(50.0, -92.5),
-            doubleArrayOf(100.0, -92.0), doubleArrayOf(200.0, -93.6), doubleArrayOf(300.0, -95.0),
-            doubleArrayOf(500.0, -98.6), doubleArrayOf(700.0, -99.8), doubleArrayOf(1000.0, -100.7),
-            doubleArrayOf(1400.0, -101.5), doubleArrayOf(2000.0, -103.6), doubleArrayOf(2800.0, -103.7),
-            doubleArrayOf(4000.0, -105.8), doubleArrayOf(5000.0, -104.3), doubleArrayOf(6000.0, -103.8),
-            doubleArrayOf(6500.0, -104.5), doubleArrayOf(7000.0, -106.1), doubleArrayOf(8000.0, -109.4),
-            doubleArrayOf(9000.0, -111.8), doubleArrayOf(10000.0, -113.5), doubleArrayOf(12000.0, -116.7),
-            doubleArrayOf(14000.0, -118.6), doubleArrayOf(15500.0, -120.2), doubleArrayOf(16500.0, -135.0),
+            doubleArrayOf(20.0, -98.1),
+            doubleArrayOf(22.4, -97.9),
+            doubleArrayOf(25.2, -97.6),
+            doubleArrayOf(28.3, -97.3),
+            doubleArrayOf(31.7, -97.2),
+            doubleArrayOf(35.6, -97.0),
+            doubleArrayOf(40.0, -96.8),
+            doubleArrayOf(44.9, -96.7),
+            doubleArrayOf(50.4, -96.5),
+            doubleArrayOf(56.6, -96.3),
+            doubleArrayOf(63.5, -96.1),
+            doubleArrayOf(71.3, -95.8),
+            doubleArrayOf(80.0, -95.6),
+            doubleArrayOf(89.8, -95.6),
+            doubleArrayOf(100.8, -95.5),
+            doubleArrayOf(113.1, -95.5),
+            doubleArrayOf(127.0, -95.8),
+            doubleArrayOf(142.5, -96.0),
+            doubleArrayOf(160.0, -96.2),
+            doubleArrayOf(179.6, -96.5),
+            doubleArrayOf(201.6, -96.7),
+            doubleArrayOf(226.3, -97.3),
+            doubleArrayOf(254.0, -97.8),
+            doubleArrayOf(285.1, -99.0),
+            doubleArrayOf(320.0, -99.9),
+            doubleArrayOf(359.2, -100.8),
+            doubleArrayOf(403.2, -101.2),
+            doubleArrayOf(452.5, -101.8),
+            doubleArrayOf(508.0, -102.4),
+            doubleArrayOf(570.2, -102.8),
+            doubleArrayOf(640.0, -103.4),
+            doubleArrayOf(718.4, -103.7),
+            doubleArrayOf(806.3, -103.9),
+            doubleArrayOf(905.1, -104.5),
+            doubleArrayOf(1015.9, -104.8),
+            doubleArrayOf(1140.4, -105.4),
+            doubleArrayOf(1280.0, -104.6),
+            doubleArrayOf(1436.8, -104.4),
+            doubleArrayOf(1612.7, -105.0),
+            doubleArrayOf(1810.2, -105.4),
+            doubleArrayOf(2031.9, -105.3),
+            doubleArrayOf(2280.7, -105.7),
+            doubleArrayOf(2560.0, -106.0),
+            doubleArrayOf(2873.5, -105.9),
+            doubleArrayOf(3225.4, -106.2),
+            doubleArrayOf(3620.4, -106.2),
+            doubleArrayOf(4063.7, -106.1),
+            doubleArrayOf(4561.4, -105.2),
+            doubleArrayOf(5120.0, -104.4),
+            doubleArrayOf(5747.0, -104.0),
+            doubleArrayOf(6450.8, -104.7),
+            doubleArrayOf(7240.8, -107.5),
+            doubleArrayOf(8127.5, -110.4),
+            doubleArrayOf(9122.8, -112.5),
+            doubleArrayOf(10240.0, -114.2),
+            doubleArrayOf(11494.0, -116.4),
+            doubleArrayOf(12901.6, -118.1),
+            doubleArrayOf(14481.5, -119.3),
+            doubleArrayOf(15500.0, -120.6),
+            doubleArrayOf(16000.0, -124.0),
+            doubleArrayOf(16600.0, -140.0),
         )
+
+        private val hissLoop: FloatArray by lazy { makeHiss(Random(20250309L)) }
+
+        /** Builds the hiss ahead of time; it takes a fraction of a second. */
+        fun warmUp() {
+            hissLoop.size
+        }
 
         private fun shapeDb(freq: Double): Double {
             if (freq < HISS_SHAPE[0][0]) return -140.0

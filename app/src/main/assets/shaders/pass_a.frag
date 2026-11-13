@@ -1,5 +1,5 @@
-// Pass A: camera -> "tape frame" at the internal tape resolution.
-// Crops/zooms/rotates the camera image, grades it, masks the side borders,
+// Pass A: camcorder picture -> "tape frame" at the internal tape resolution.
+// Zooms into the 640x480 camcorder picture, grades it, masks the side borders,
 // burns in the on-screen display and adds pre-filter tape noise.
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -7,29 +7,20 @@ precision highp float;
 precision mediump float;
 #endif
 
-uniform CAM_SAMPLER uCam;
-uniform mat4 uTexMatrix;   // SurfaceTexture transform
-uniform mat3 uCamXform;    // picture coords (y down) -> camera texture coords
+uniform sampler2D uVga;    // the 640x480 camcorder picture (bilinear)
+uniform float uZoom;       // digital zoom, 1 = whole picture
 uniform sampler2D uOsd;    // premultiplied on-screen display
 uniform sampler2D uNoise;
 uniform vec2 uInvSize;     // 1 / internal size
 uniform vec4 uRand;        // per-frame random numbers
-uniform float uSoft;       // extra softness in output pixels (grows with digital zoom)
 varying vec2 vUv;
 
 const float NOISE_Y = 0.027;
 const float NOISE_C = 0.018;
 
-vec3 cam(vec2 p) {
-    vec3 n = uCamXform * vec3(p, 1.0);
-    return texture2D(uCam, (uTexMatrix * vec4(n.xy, 0.0, 1.0)).xy).rgb;
-}
-
 void main() {
     vec2 p = vUv;
-    vec2 d = uInvSize * 0.25 + uSoft * vec2(1.0 / 960.0, 1.0 / 720.0);
-    vec3 c = 0.25 * (cam(p + vec2(-d.x, -d.y)) + cam(p + vec2(d.x, -d.y)) +
-                     cam(p + vec2(-d.x, d.y)) + cam(p + vec2(d.x, d.y)));
+    vec3 c = texture2D(uVga, 0.5 + (p - 0.5) / uZoom).rgb;
 
     // Camcorder colour: a little more saturation and contrast, lifted blacks.
     float y = dot(c, vec3(0.299, 0.587, 0.114));

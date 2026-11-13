@@ -5,14 +5,9 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.RectF
 import android.graphics.SurfaceTexture
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.StateListDrawable
 import android.hardware.display.DisplayManager
 import android.net.Uri
 import android.os.Build
@@ -26,7 +21,6 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
-import android.view.MotionEvent
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -35,12 +29,14 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 
-/** The camcorder: viewfinder in the middle, zoom rocker on the left, record button on the right. */
+/**
+ * The camcorder. Viewfinder in the middle; on the body to the left MENU, DATE and the
+ * zoom rocker, to the right LIGHT, CAMERA, the red REC key with its lamp, and PLAY.
+ */
 class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
     CameraController.Listener, TapeRecorder.Listener {
 
@@ -48,18 +44,20 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
 
     private val ui = Handler(Looper.getMainLooper())
 
+    private lateinit var painter: PixelPainter
     private lateinit var preview: SurfaceView
-    private lateinit var hud: FrameLayout
+    private lateinit var viewfinder: Viewfinder
+    private lateinit var menu: MenuPanel
     private lateinit var leftPanel: LinearLayout
     private lateinit var rightPanel: LinearLayout
     private lateinit var message: TextView
-    private lateinit var recLabel: TextView
-    private lateinit var zoomLabel: TextView
-    private lateinit var recButton: RecButton
-    private lateinit var lightButton: TextView
-    private lateinit var flipButton: TextView
-    private lateinit var dateButton: TextView
-    private lateinit var galleryButton: TextView
+    private lateinit var menuKey: KeyButton
+    private lateinit var dateKey: KeyButton
+    private lateinit var lightKey: KeyButton
+    private lateinit var cameraKey: KeyButton
+    private lateinit var playKey: KeyButton
+    private lateinit var recKey: RecKey
+    private lateinit var recLamp: Lamp
 
     private var renderer: VhsRenderer? = null
     private var camera: CameraController? = null
@@ -74,8 +72,11 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
     private var front = false
     private var torch = false
     private var stamp = true
+    private var hasFlash = false
+    private var hasTwoCameras = false
     private var state = State.IDLE
     private var recStartMs = 0L
+    private var lastRecordedMs = 0L
     private var lastUri: Uri? = null
 
     private var autotestSeconds = 0
@@ -91,9 +92,13 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
 
     private val ticker = object : Runnable {
         override fun run() {
-            updateRecLabel()
-            zoomLabel.text = formatZoom(renderer?.currentZoom ?: 1f)
-            ui.postDelayed(this, 200)
+            val now = SystemClock.elapsedRealtime()
+            viewfinder.mode = state.ordinal
+            viewfinder.recordedMillis = if (state == State.RECORDING) now - recStartMs else lastRecordedMs
+            viewfinder.zoom = renderer?.currentZoom ?: 1f
+            viewfinder.invalidate()
+            recLamp.lit = state == State.RECORDING && now / 500 % 2 == 0L
+            ui.postDelayed(this, 100)
         }
     }
 
@@ -102,6 +107,8 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         autotestSeconds = intent?.getIntExtra("autotest", 0) ?: 0
         front = intent?.getBooleanExtra("front", false) ?: false
+        // The tape hiss takes a moment to synthesise; do it before the first recording needs it.
+        Thread({ VhsAudio.warmUp() }, "vhs-hiss").start()
         buildUi()
         hideSystemUi()
     }
@@ -182,17 +189,19 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         renderer = r
         r.setDisplayRotation(currentRotation())
         r.setStampEnabled(stamp)
-        camera = CameraController(applicationContext, this)
+        val cam = CameraController(applicationContext, this)
+        camera = cam
+        hasTwoCameras = cam.hasFrontAndBack()
         r.start()
         if (surfaceReady) r.setPreviewSurface(preview.holder.surface, surfaceW, surfaceH)
-        flipButton.visibility = if (camera?.hasFrontAndBack() == true) View.VISIBLE else View.GONE
+        updateControls()
     }
 
     private fun stopPipeline() {
         val r = renderer ?: return
         if (state == State.RECORDING) {
+            lastRecordedMs = SystemClock.elapsedRealtime() - recStartMs
             state = State.SAVING
-            updateControls()
         }
         camera?.closeBlocking()
         camera?.release()
@@ -201,6 +210,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         renderer = null
         cameraTexture = null
         torch = false
+        showMenu(false)
         updateControls()
     }
 
@@ -230,7 +240,8 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
     override fun onCameraConfigured(width: Int, height: Int, sensorOrientation: Int, front: Boolean) {
         renderer?.setCameraGeometry(width, height, sensorOrientation, front)
         ui.post {
-            lightButton.visibility = if (camera?.hasFlash == true) View.VISIBLE else View.INVISIBLE
+            hasFlash = camera?.hasFlash == true
+            updateControls()
             if (autotestSeconds > 0 && !autotestStarted) {
                 autotestStarted = true
                 runAutotest()
@@ -274,6 +285,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
             requestNeededPermissions()
             return
         }
+        showMenu(false)
         try {
             val rec = TapeRecorder(this, hasPermission(Manifest.permission.RECORD_AUDIO), this)
             val surface = rec.start()
@@ -289,6 +301,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
 
     private fun stopRecording() {
         if (state != State.RECORDING) return
+        lastRecordedMs = SystemClock.elapsedRealtime() - recStartMs
         state = State.SAVING
         updateControls()
         renderer?.stopRecording()
@@ -310,8 +323,8 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         Log.i(TAG, "AUTOTEST_BEGIN seconds=$autotestSeconds")
         ui.postDelayed({
             startRecording()
-            ui.postDelayed({ renderer?.setZoomDirection(1) }, 1500)
-            ui.postDelayed({ renderer?.setZoomDirection(0) }, 2700)
+            ui.postDelayed({ zoomTo(1) }, 1500)
+            ui.postDelayed({ zoomTo(0) }, 2700)
             ui.postDelayed({ stopRecording() }, autotestSeconds * 1000L)
         }, 3000)
     }
@@ -331,91 +344,135 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         return super.onKeyUp(keyCode, event)
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (menu.visibility == View.VISIBLE) {
+            showMenu(false)
+        } else {
+            @Suppress("DEPRECATION")
+            super.onBackPressed()
+        }
+    }
+
+    // ---------------------------------------------------------------- controls
+
+    private fun zoomTo(dir: Int) {
+        renderer?.setZoomDirection(dir)
+        // Keep the zoom bar in the viewfinder while zooming and for a moment afterwards.
+        viewfinder.zoomBarUntil = if (dir != 0) Long.MAX_VALUE else SystemClock.elapsedRealtime() + 1500
+    }
+
+    private fun toggleLight() {
+        if (!hasFlash) return
+        torch = !torch
+        camera?.setTorch(torch)
+        updateControls()
+    }
+
+    private fun toggleDate() {
+        stamp = !stamp
+        renderer?.setStampEnabled(stamp)
+        updateControls()
+    }
+
+    private fun flipCamera() {
+        if (state != State.IDLE || !hasTwoCameras) return
+        val st = cameraTexture ?: return
+        front = !front
+        torch = false
+        renderer?.resetZoom()
+        camera?.open(st, front)
+        updateControls()
+    }
+
+    private fun showMenu(show: Boolean) {
+        menu.visibility = if (show) View.VISIBLE else View.GONE
+        menu.invalidate()
+    }
+
+    private fun openLastClip() {
+        if (state != State.IDLE) return
+        try {
+            val uri = lastUri
+            val intent = if (uri != null && uri.scheme == "content") {
+                Intent(Intent.ACTION_VIEW).setDataAndType(uri, "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } else {
+                Intent(Intent.ACTION_VIEW, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+            }
+            startActivity(intent)
+        } catch (t: Throwable) {
+            Toast.makeText(this, "Видео лежат в галерее, альбом «${TapeRecorder.ALBUM}»", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun updateControls() {
+        recKey.mode = state.ordinal
+        dateKey.lamp = stamp
+        lightKey.lamp = torch
+        lightKey.isEnabled = hasFlash
+        cameraKey.isEnabled = hasTwoCameras && state == State.IDLE
+        playKey.isEnabled = state == State.IDLE
+        lightKey.invalidate()
+        cameraKey.invalidate()
+        playKey.invalidate()
+        viewfinder.mode = state.ordinal
+        viewfinder.invalidate()
+        menu.invalidate()
+    }
+
     // ----------------------------------------------------------------------- UI
 
     private fun dp(v: Float): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics).toInt()
 
     private fun buildUi() {
+        painter = PixelPainter(PixelFont(assets.open("osd_font.txt").bufferedReader().use { it.readText() }))
+
         preview = SurfaceView(this)
         preview.holder.addCallback(this)
-        // Dragging a finger over the picture upsets the tracking there, like nudging the tape.
-        preview.setOnTouchListener { v, e ->
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE ->
-                    renderer?.setTouchGlitch((e.y / v.height.coerceAtLeast(1)).coerceIn(0f, 1f))
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> renderer?.setTouchGlitch(-1f)
-            }
-            true
-        }
+        viewfinder = Viewfinder(this, painter)
 
-        hud = FrameLayout(this)
-        recLabel = TextView(this).apply {
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-            setTextColor(REC_RED)
-            setShadowLayer(4f, 0f, 1f, Color.BLACK)
-            visibility = View.INVISIBLE
-        }
-        hud.addView(recLabel, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END
-        ).apply { setMargins(0, dp(12f), dp(28f), 0) })
+        menu = MenuPanel(this, painter)
+        menu.items = listOf(
+            MenuPanel.Item("DATE/TIME", { if (stamp) "ON" else "OFF" }, { true }) { toggleDate() },
+            MenuPanel.Item("LIGHT", { if (torch) "ON" else "OFF" }, { hasFlash }) { toggleLight() },
+            MenuPanel.Item("CAMERA", { if (front) "FRONT" else "BACK" }, { hasTwoCameras && state == State.IDLE }) { flipCamera() },
+            MenuPanel.Item("EXIT", { "" }, { true }) { showMenu(false) },
+        )
+        menu.visibility = View.GONE
 
-        // Left: the zoom rocker.
-        leftPanel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        menuKey = KeyButton(this, painter, "MENU").apply { setOnClickListener { showMenu(menu.visibility != View.VISIBLE) } }
+        dateKey = KeyButton(this, painter, "DATE").apply { setOnClickListener { toggleDate() } }
+        lightKey = KeyButton(this, painter, "LIGHT").apply { setOnClickListener { toggleLight() } }
+        cameraKey = KeyButton(this, painter, "CAMERA").apply { setOnClickListener { flipCamera() } }
+        playKey = KeyButton(this, painter, "PLAY>").apply { setOnClickListener { openLastClip() } }
+        recKey = RecKey(this).apply { setOnClickListener { toggleRecording() } }
+        recLamp = Lamp(this)
+        val rocker = ZoomRocker(this, painter).apply { onZoom = { zoomTo(it) } }
+
+        // Left side of the body: MENU, DATE and the zoom rocker.
+        leftPanel = bodyPanel()
+        leftPanel.addView(menuKey, sized(72f, 34f, 0f, 7f))
+        leftPanel.addView(dateKey, sized(72f, 34f, 0f, 18f))
+        leftPanel.addView(BodyLabel(this, painter, "ZOOM"), sized(72f, 9f, 0f, 6f))
+        leftPanel.addView(rocker, sized(56f, 132f, 0f, 0f))
+
+        // Right side: LIGHT, CAMERA, the record key with its lamp, PLAY.
+        rightPanel = bodyPanel()
+        rightPanel.addView(lightKey, sized(72f, 34f, 0f, 7f))
+        rightPanel.addView(cameraKey, sized(72f, 34f, 0f, 16f))
+        val recRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val tele = pad("T", 22f)
-        val wide = pad("W", 22f)
-        zoomLabel = label("1.0x", 12f)
-        holdToZoom(tele, 1)
-        holdToZoom(wide, -1)
-        leftPanel.addView(label("ZOOM", 10f), wrapParams(0, 0))
-        leftPanel.addView(tele, sizeParams(64f, 72f, 8f))
-        leftPanel.addView(zoomLabel, wrapParams(8, 8))
-        leftPanel.addView(wide, sizeParams(64f, 72f, 0f))
-
-        // Right: options, the record button, the gallery.
-        rightPanel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-        }
-        lightButton = pad("СВЕТ", 11f).apply {
-            setOnClickListener {
-                torch = !torch
-                camera?.setTorch(torch)
-                updateControls()
-            }
-        }
-        flipButton = pad("КАМЕРА", 11f).apply {
-            setOnClickListener {
-                if (state != State.IDLE) return@setOnClickListener
-                val st = cameraTexture ?: return@setOnClickListener
-                front = !front
-                torch = false
-                renderer?.resetZoom()
-                camera?.open(st, front)
-                updateControls()
-            }
-        }
-        dateButton = pad("ДАТА", 11f).apply {
-            setOnClickListener {
-                stamp = !stamp
-                renderer?.setStampEnabled(stamp)
-                updateControls()
-            }
-        }
-        recButton = RecButton(this).apply { setOnClickListener { toggleRecording() } }
-        galleryButton = pad("ГАЛЕРЕЯ", 11f).apply { setOnClickListener { openGallery() } }
-        rightPanel.addView(lightButton, sizeParams(76f, 34f, 6f))
-        rightPanel.addView(flipButton, sizeParams(76f, 34f, 6f))
-        rightPanel.addView(dateButton, sizeParams(76f, 34f, 14f))
-        rightPanel.addView(recButton, sizeParams(76f, 76f, 14f))
-        rightPanel.addView(galleryButton, sizeParams(76f, 34f, 0f))
+        recRow.addView(recLamp, LinearLayout.LayoutParams(dp(9f), dp(9f)).apply { rightMargin = dp(5f) })
+        recRow.addView(BodyLabel(this, painter, "REC"), LinearLayout.LayoutParams(dp(26f), dp(9f)))
+        rightPanel.addView(recRow, sized(72f, 9f, 0f, 6f))
+        rightPanel.addView(recKey, sized(76f, 76f, 0f, 16f))
+        rightPanel.addView(playKey, sized(72f, 36f, 0f, 0f))
 
         message = TextView(this).apply {
             gravity = Gravity.CENTER
-            setTextColor(TEXT)
+            setTextColor(0xFFE8E6DE.toInt())
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             setBackgroundColor(Color.BLACK)
             visibility = View.GONE
@@ -425,7 +482,8 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         val root = CamLayout(this)
         root.setBackgroundColor(Color.BLACK)
         root.addView(preview)
-        root.addView(hud)
+        root.addView(viewfinder)
+        root.addView(menu)
         root.addView(leftPanel)
         root.addView(rightPanel)
         root.addView(message)
@@ -433,94 +491,19 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         updateControls()
     }
 
-    private fun label(text: String, sp: Float) = TextView(this).apply {
-        this.text = text
+    /** A side of the camcorder body: dark moulded plastic. */
+    private fun bodyPanel() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
-        typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-        setTextColor(DIM)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
+        background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(0xFF2A2B2F.toInt(), 0xFF17181B.toInt(), 0xFF0E0F11.toInt()))
     }
 
-    private fun pad(text: String, sp: Float) = TextView(this).apply {
-        this.text = text
-        gravity = Gravity.CENTER
-        typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-        setTextColor(TEXT)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
-        maxLines = 1
-        isClickable = true
-        background = padBackground(false)
-    }
-
-    private fun padBackground(active: Boolean): StateListDrawable {
-        fun shape(color: Int, stroke: Int) = GradientDrawable().apply {
-            cornerRadius = dp(8f).toFloat()
-            setColor(color)
-            setStroke(dp(1f), stroke)
+    private fun sized(wDp: Float, hDp: Float, topDp: Float, bottomDp: Float) =
+        LinearLayout.LayoutParams(dp(wDp), dp(hDp)).apply {
+            topMargin = dp(topDp)
+            bottomMargin = dp(bottomDp)
         }
-        return StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_pressed), shape(0xFF5A5D66.toInt(), 0xFF8A8D96.toInt()))
-            addState(intArrayOf(), if (active) shape(0xFF6B5320.toInt(), AMBER) else shape(0xFF24262C.toInt(), 0xFF3A3D45.toInt()))
-        }
-    }
-
-    private fun sizeParams(wDp: Float, hDp: Float, bottomDp: Float) =
-        LinearLayout.LayoutParams(dp(wDp), dp(hDp)).apply { bottomMargin = dp(bottomDp) }
-
-    private fun wrapParams(topDp: Int, bottomDp: Int) =
-        LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            topMargin = dp(topDp.toFloat())
-            bottomMargin = dp(bottomDp.toFloat())
-        }
-
-    private fun holdToZoom(view: View, dir: Int) {
-        view.setOnTouchListener { v, e ->
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    renderer?.setZoomDirection(dir)
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    renderer?.setZoomDirection(0)
-                }
-            }
-            true
-        }
-    }
-
-    private fun formatZoom(z: Float): String {
-        val tenths = Math.round(z * 10f)
-        return "${tenths / 10}.${tenths % 10}x"
-    }
-
-    private fun updateControls() {
-        recButton.mode = state.ordinal
-        recButton.invalidate()
-        lightButton.background = padBackground(torch)
-        dateButton.background = padBackground(stamp)
-        flipButton.alpha = if (state == State.IDLE) 1f else 0.35f
-        galleryButton.alpha = if (state == State.IDLE) 1f else 0.35f
-        updateRecLabel()
-    }
-
-    private fun updateRecLabel() {
-        when (state) {
-            State.RECORDING -> {
-                val ms = SystemClock.elapsedRealtime() - recStartMs
-                val s = ms / 1000
-                val sec = s % 60
-                val dot = if (ms / 500 % 2 == 0L) "●" else " "
-                recLabel.text = "$dot REC ${s / 60}:${if (sec < 10) "0$sec" else "$sec"}"
-                recLabel.visibility = View.VISIBLE
-            }
-            State.SAVING -> {
-                recLabel.text = "СОХРАНЕНИЕ…"
-                recLabel.visibility = View.VISIBLE
-            }
-            State.IDLE -> recLabel.visibility = View.INVISIBLE
-        }
-    }
 
     private fun showMessage(text: String?) {
         if (text == null) {
@@ -546,22 +529,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         }
     }
 
-    private fun openGallery() {
-        if (state != State.IDLE) return
-        try {
-            val uri = lastUri
-            val intent = if (uri != null && uri.scheme == "content") {
-                Intent(Intent.ACTION_VIEW).setDataAndType(uri, "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } else {
-                Intent(Intent.ACTION_VIEW, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-            }
-            startActivity(intent)
-        } catch (t: Throwable) {
-            Toast.makeText(this, "Видео лежат в галерее, альбом «${TapeRecorder.ALBUM}»", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    /** Viewfinder 4:3 in the middle, a control panel on each side. */
+    /** Viewfinder 4:3 in the middle, a side of the body on each side, the menu over the picture. */
     private inner class CamLayout(context: Context) : ViewGroup(context) {
         private var pw = 0
         private var ph = 0
@@ -576,7 +544,8 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
             val panel = (w - pw) / 2
             fun exactly(v: Int) = MeasureSpec.makeMeasureSpec(v, MeasureSpec.EXACTLY)
             preview.measure(exactly(pw), exactly(ph))
-            hud.measure(exactly(pw), exactly(ph))
+            viewfinder.measure(exactly(pw), exactly(ph))
+            menu.measure(exactly(pw * 62 / 100), exactly(ph * 56 / 100))
             leftPanel.measure(exactly(panel), exactly(h))
             rightPanel.measure(exactly(panel), exactly(h))
             message.measure(exactly(w), exactly(h))
@@ -588,51 +557,17 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
             val px = (w - pw) / 2
             val py = (h - ph) / 2
             preview.layout(px, py, px + pw, py + ph)
-            hud.layout(px, py, px + pw, py + ph)
+            viewfinder.layout(px, py, px + pw, py + ph)
+            val mw = menu.measuredWidth
+            val mh = menu.measuredHeight
+            menu.layout(px + (pw - mw) / 2, py + (ph - mh) / 2, px + (pw + mw) / 2, py + (ph + mh) / 2)
             leftPanel.layout(0, 0, px, h)
             rightPanel.layout(px + pw, 0, w, h)
             message.layout(0, 0, w, h)
         }
     }
 
-    /** Round record button: red dot when idle, red square while recording, grey while saving. */
-    private class RecButton(context: Context) : View(context) {
-        var mode = 0
-        private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = TEXT }
-        private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-        private val rect = RectF()
-
-        init {
-            isClickable = true
-        }
-
-        override fun onDraw(canvas: Canvas) {
-            val cx = width / 2f
-            val cy = height / 2f
-            val r = minOf(width, height) / 2f
-            ring.strokeWidth = r * 0.09f
-            canvas.drawCircle(cx, cy, r * 0.92f, ring)
-            fill.color = if (mode == 2) 0xFF6A6A6A.toInt() else if (isPressed) 0xFFB02A22.toInt() else REC_RED
-            if (mode == 1) {
-                val s = r * 0.40f
-                rect.set(cx - s, cy - s, cx + s, cy + s)
-                canvas.drawRoundRect(rect, s * 0.25f, s * 0.25f, fill)
-            } else {
-                canvas.drawCircle(cx, cy, r * 0.72f, fill)
-            }
-        }
-
-        override fun drawableStateChanged() {
-            super.drawableStateChanged()
-            invalidate()
-        }
-    }
-
     companion object {
         private const val TAG = "VHSCAM"
-        private val TEXT = 0xFFE8E6DE.toInt()
-        private val DIM = 0xFF8C8A84.toInt()
-        private val AMBER = 0xFFE0A030.toInt()
-        private val REC_RED = 0xFFE5352B.toInt()
     }
 }

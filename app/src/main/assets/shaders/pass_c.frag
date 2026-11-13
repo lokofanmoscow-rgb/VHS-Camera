@@ -1,5 +1,5 @@
 // Pass C: playback artefacts at the output resolution.
-// Colour mis-registration, interlace weave, ghost, tape dropouts, the
+// Colour mis-registration, ghost, line jitter, tape dropouts, the
 // head-switching band at the bottom and the start/stop glitches.
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -8,13 +8,11 @@ precision mediump float;
 #endif
 
 uniform sampler2D uCur;     // filtered tape frame
-uniform sampler2D uPrev;    // previous filtered tape frame (other field)
 uniform sampler2D uNoise;
 uniform vec4 uRand;         // per-frame random numbers
 uniform vec4 uRand2;
 uniform float uStatic;      // 0..1 snow + picture wobble (tape start)
 uniform vec4 uBand;         // travelling "held lines" band: top, height, x shift, smear
-uniform float uWeave;       // 0..1 strength of the field weave
 varying vec2 vUv;
 
 const float PX = 1.0 / 960.0;
@@ -50,15 +48,10 @@ void main() {
     s.y = mix(s.y, 0.9740 + 0.005 * hn.x, hs);
     s.x = mix(s.x, 0.12 + uv.x * 0.11 + 0.62 * hn.y, hs);
 
-    s.x += dx;
+    // Time-base jitter: every line pair sits a fraction of a pixel off.
+    s.x += dx + (hn.w - 0.5) * 0.6 * PX;
 
     vec3 c = tape(uCur, s);
-
-    // Interlace: every other line still shows a little of the previous field.
-    float odd = mod(floor(uv.y * 720.0), 2.0);
-    if (odd * uWeave > 0.0) {
-        c = mix(c, tape(uPrev, s), uWeave);
-    }
 
     // Faint ghost to the right.
     c = c * 0.96 + 0.04 * texture2D(uCur, s - vec2(14.0 * PX, 0.0)).rgb;

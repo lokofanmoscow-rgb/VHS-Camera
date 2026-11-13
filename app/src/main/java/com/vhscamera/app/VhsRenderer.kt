@@ -55,16 +55,19 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
     private val texMatrix = FloatArray(16)
     private val camXform = FloatArray(9)
 
+    private var progCam: Program? = null
     private var progA: Program? = null
     private var progB: Program? = null
     private var progC: Program? = null
     private var progBlit: Program? = null
     private var noiseTex = 0
     private var osdTex = 0
+    private val texVga = IntArray(1)
+    private val fboVga = IntArray(1)
     private val texA = IntArray(1)
     private val fboA = IntArray(1)
-    private val texB = IntArray(2)
-    private val fboB = IntArray(2)
+    private val texB = IntArray(1)
+    private val fboB = IntArray(1)
     private val texC = IntArray(1)
     private val fboC = IntArray(1)
     private var quad: FloatBuffer? = null
@@ -88,7 +91,6 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
 
     // options
     private var stampEnabled = true
-    private var touchY = -1f
 
     // recording
     private var recState = REC_IDLE
@@ -166,11 +168,6 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         handler.post { stampEnabled = enabled }
     }
 
-    /** A finger on the viewfinder upsets the tracking at that height (0 = top, 1 = bottom; negative = released). */
-    fun setTouchGlitch(y: Float) {
-        handler.post { touchY = y }
-    }
-
     fun startRecording(encoderInput: Surface, sink: RecordingSink) {
         handler.post {
             val e = egl
@@ -243,7 +240,8 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         e.makeCurrent(pb)
 
         val vs = asset("shaders/quad.vert")
-        progA = Program(vs, "#extension GL_OES_EGL_image_external : require\n#define CAM_SAMPLER samplerExternalOES\n" + asset("shaders/pass_a.frag"))
+        progCam = Program(vs, "#extension GL_OES_EGL_image_external : require\n#define CAM_SAMPLER samplerExternalOES\n" + asset("shaders/pass_cam.frag"))
+        progA = Program(vs, asset("shaders/pass_a.frag"))
         progB = Program(vs, asset("shaders/pass_b.frag"))
         progC = Program(vs, asset("shaders/pass_c.frag"))
         progBlit = Program(vs, asset("shaders/blit.frag"))
@@ -269,13 +267,13 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         noiseTex = newTexture(256, 256, ByteBuffer.wrap(noise), GLES20.GL_NEAREST, GLES20.GL_REPEAT)
 
         // on-screen display
-        osd = Osd(asset("osd_font.txt"))
+        osd = Osd(PixelFont(asset("osd_font.txt")))
         osdTex = newTexture(Osd.WIDTH, Osd.HEIGHT, null, GLES20.GL_LINEAR, GLES20.GL_CLAMP_TO_EDGE)
         osdKey = ""
 
+        newTarget(VGA_W, VGA_H, texVga, fboVga, 0)
         newTarget(TAPE_W, TAPE_H, texA, fboA, 0)
         newTarget(TAPE_W, TAPE_H, texB, fboB, 0)
-        newTarget(TAPE_W, TAPE_H, texB, fboB, 1)
         newTarget(OUT_W, OUT_H, texC, fboC, 0)
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
 
@@ -407,13 +405,6 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
             }
         }
 
-        if (bandHeight == 0f && touchY >= 0f) {
-            bandHeight = 0.09f
-            bandTop = (touchY - 0.045f).coerceIn(0f, 0.88f)
-            bandShift = 0.03f
-            bandSmear = 0.25f
-        }
-
         updateOsd(showPlay)
         updateCamXform()
         if (frameIndex == 0L || frameIndex == 30L) {
@@ -425,20 +416,32 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glEnableVertexAttribArray(0)
         GLES20.glVertexAttribPointer(0, 2, GLES20.GL_FLOAT, false, 0, q)
 
-        // Pass A: camera -> tape frame
+        // Pass 0: phone camera -> the camcorder's own 640x480 picture
+        val cam = progCam!!
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboVga[0])
+        GLES20.glViewport(0, 0, VGA_W, VGA_H)
+        cam.use()
+        GLES20.glUniform1f(cam.u("uFlipY"), 1f)
+        GLES20.glUniformMatrix4fv(cam.u("uTexMatrix"), 1, false, texMatrix, 0)
+        GLES20.glUniformMatrix3fv(cam.u("uCamXform"), 1, false, camXform, 0)
+        GLES20.glUniform2f(cam.u("uInvSize"), 1f / VGA_W, 1f / VGA_H)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, camTex)
+        GLES20.glUniform1i(cam.u("uCam"), 0)
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+
+        // Pass A: camcorder picture -> tape frame (digital zoom, colour, stamp, noise)
         val a = progA!!
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboA[0])
         GLES20.glViewport(0, 0, TAPE_W, TAPE_H)
         a.use()
         GLES20.glUniform1f(a.u("uFlipY"), 1f)
-        GLES20.glUniformMatrix4fv(a.u("uTexMatrix"), 1, false, texMatrix, 0)
-        GLES20.glUniformMatrix3fv(a.u("uCamXform"), 1, false, camXform, 0)
+        GLES20.glUniform1f(a.u("uZoom"), zoom)
         GLES20.glUniform2f(a.u("uInvSize"), 1f / TAPE_W, 1f / TAPE_H)
         GLES20.glUniform4f(a.u("uRand"), random.nextFloat(), random.nextFloat(), random.nextFloat(), random.nextFloat())
-        GLES20.glUniform1f(a.u("uSoft"), ((zoom - 1f) * 0.3f).coerceIn(0f, 1.6f))
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, camTex)
-        GLES20.glUniform1i(a.u("uCam"), 0)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texVga[0])
+        GLES20.glUniform1i(a.u("uVga"), 0)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, osdTex)
         GLES20.glUniform1i(a.u("uOsd"), 1)
@@ -448,10 +451,8 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
         // Pass B: horizontal tape filter
-        val cur = (frameIndex % 2).toInt()
-        val prev = if (frameIndex == 0L) cur else 1 - cur
         val b = progB!!
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboB[cur])
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboB[0])
         b.use()
         GLES20.glUniform1f(b.u("uFlipY"), 1f)
         GLES20.glUniform2f(b.u("uInvSize"), 1f / TAPE_W, 1f / TAPE_H)
@@ -467,11 +468,8 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         c.use()
         GLES20.glUniform1f(c.u("uFlipY"), 1f)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texB[cur])
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texB[0])
         GLES20.glUniform1i(c.u("uCur"), 0)
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texB[prev])
-        GLES20.glUniform1i(c.u("uPrev"), 1)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE2)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, noiseTex)
         GLES20.glUniform1i(c.u("uNoise"), 2)
@@ -479,7 +477,6 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glUniform4f(c.u("uRand2"), random.nextFloat(), random.nextFloat(), random.nextFloat(), random.nextFloat())
         GLES20.glUniform1f(c.u("uStatic"), staticAmount)
         GLES20.glUniform4f(c.u("uBand"), bandTop, bandHeight, bandShift, bandSmear)
-        GLES20.glUniform1f(c.u("uWeave"), WEAVE)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
         frameIndex++
@@ -535,8 +532,8 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
 
     /**
      * Builds the matrix that takes picture coordinates (x right, y down, 0..1) to the
-     * coordinates SurfaceTexture expects: un-mirror the front camera, centre-crop to 4:3,
-     * apply the digital zoom and undo the display rotation.
+     * coordinates SurfaceTexture expects: un-mirror the front camera, centre-crop to 4:3
+     * and undo the display rotation.
      */
     private fun updateCamXform() {
         val sensorSideways = sensorOrientation == 90 || sensorOrientation == 270
@@ -549,8 +546,6 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         var kx = 1f
         var ky = 1f
         if (aspect > 4f / 3f) kx = (4f / 3f) / aspect else ky = aspect / (4f / 3f)
-        kx /= zoom
-        ky /= zoom
 
         fun map(x: Float, y: Float, out: FloatArray) {
             var u = x
@@ -614,9 +609,10 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         const val OUT_H = 720
         private const val TAPE_W = 480
         private const val TAPE_H = 720
+        private const val VGA_W = 640             // the camcorder's own picture
+        private const val VGA_H = 480
         private const val ZOOM_SPEED = 0.78f      // magnification per second, measured on the reference tapes
         private const val MAX_ZOOM = 6f
-        private const val WEAVE = 0.25f
         private const val PLAY_SECONDS = 3.0f
         private const val START_BAND_SECONDS = 0.55f
         private const val END_FRAMES = 8
