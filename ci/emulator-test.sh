@@ -42,6 +42,10 @@ run_case() {
   adb shell input tap 240 270
   sleep 1
   adb exec-out screencap -p > "$OUT/${name}_screen_menu.png"
+  # MODE is the first line of the menu: switch the look (it is remembered for the next case).
+  adb shell input tap 1200 391
+  sleep 1
+  adb exec-out screencap -p > "$OUT/${name}_screen_mode.png"
   adb shell input tap 240 270
   adb logcat -d -s VHSCAM:* VhsRenderer:* TapeRecorder:* CameraController:* AndroidRuntime:E > "$OUT/${name}_logcat.txt"
   adb shell dumpsys window displays | grep -i -m 3 -E "mCurrentRotation|rotation=|mRotation" >> "$OUT/${name}_logcat.txt" || true

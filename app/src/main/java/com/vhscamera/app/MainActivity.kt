@@ -72,6 +72,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
     private var front = false
     private var torch = false
     private var stamp = true
+    private var look = Look.CLASSIC
     private var hasFlash = false
     private var hasTwoCameras = false
     private var state = State.IDLE
@@ -118,6 +119,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or WindowManager.LayoutParams.FLAG_FULLSCREEN)
         autotestSeconds = intent?.getIntExtra("autotest", 0) ?: 0
         front = intent?.getBooleanExtra("front", false) ?: false
+        look = Look.fromName(getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_LOOK, null))
         // The tape hiss takes a moment to synthesise; do it before the first recording needs it.
         Thread({ VhsAudio.warmUp() }, "vhs-hiss").start()
         buildUi()
@@ -200,6 +202,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         renderer = r
         r.setDisplayRotation(currentRotation())
         r.setStampEnabled(stamp)
+        r.setLook(look)
         val cam = CameraController(applicationContext, this)
         camera = cam
         hasTwoCameras = cam.hasFrontAndBack()
@@ -386,6 +389,16 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         updateControls()
     }
 
+    /** Switches between the looks; only while not recording, so a clip has one look throughout. */
+    private fun switchLook() {
+        if (state != State.IDLE) return
+        look = look.next()
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_LOOK, look.name).apply()
+        renderer?.setLook(look)
+        Log.i(TAG, "look: $look")
+        updateControls()
+    }
+
     private fun flipCamera() {
         if (state != State.IDLE || !hasTwoCameras) return
         val st = cameraTexture ?: return
@@ -444,6 +457,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
 
         menu = MenuPanel(this, painter)
         menu.items = listOf(
+            MenuPanel.Item("MODE", { look.menuLabel }, { state == State.IDLE }) { switchLook() },
             MenuPanel.Item("DATE/TIME", { if (stamp) "ON" else "OFF" }, { true }) { toggleDate() },
             MenuPanel.Item("LIGHT", { if (torch) "ON" else "OFF" }, { hasFlash }) { toggleLight() },
             MenuPanel.Item("CAMERA", { if (front) "FRONT" else "BACK" }, { hasTwoCameras && state == State.IDLE }) { flipCamera() },
@@ -556,7 +570,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
             fun exactly(v: Int) = MeasureSpec.makeMeasureSpec(v, MeasureSpec.EXACTLY)
             preview.measure(exactly(pw), exactly(ph))
             viewfinder.measure(exactly(pw), exactly(ph))
-            menu.measure(exactly(pw * 62 / 100), exactly(ph * 56 / 100))
+            menu.measure(exactly(pw * 62 / 100), exactly(ph * 64 / 100))
             leftPanel.measure(exactly(panel), exactly(h))
             rightPanel.measure(exactly(panel), exactly(h))
             message.measure(exactly(w), exactly(h))
@@ -580,5 +594,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
 
     companion object {
         private const val TAG = "VHSCAM"
+        private const val PREFS = "vhs"
+        private const val PREF_LOOK = "look"
     }
 }

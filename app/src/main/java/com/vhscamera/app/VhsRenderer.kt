@@ -91,6 +91,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
 
     // options
     private var stampEnabled = true
+    private var look = Look.CLASSIC
 
     // recording
     private var recState = REC_IDLE
@@ -166,6 +167,11 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
 
     fun setStampEnabled(enabled: Boolean) {
         handler.post { stampEnabled = enabled }
+    }
+
+    /** Picks the look of the picture. REAL_VHS currently renders exactly like CLASSIC. */
+    fun setLook(look: Look) {
+        handler.post { this.look = look }
     }
 
     fun startRecording(encoderInput: Surface, sink: RecordingSink) {
@@ -409,7 +415,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         updateCamXform()
         if (frameIndex == 0L || frameIndex == 30L) {
             Log.i(TAG, "frame $frameIndex: camera ${camW}x$camH sensor=$sensorOrientation front=$frontFacing " +
-                "displayRotation=$displayRotation texMatrix=${texMatrix.joinToString(",") { "%.2f".format(it) }}")
+                "displayRotation=$displayRotation look=$look texMatrix=${texMatrix.joinToString(",") { "%.2f".format(it) }}")
         }
 
         val q = quad!!
