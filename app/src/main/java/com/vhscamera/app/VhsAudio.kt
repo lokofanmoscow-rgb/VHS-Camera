@@ -13,8 +13,9 @@ import kotlin.math.tanh
 /**
  * VHS linear-track sound, 48 kHz mono.
  *
- * The microphone is band-limited, gets a touch of wow and flutter and is laid over the
- * tape's own noise bed. The bed is synthesised from measurements of real tape noise:
+ * The microphone is band-limited, levelled by a camcorder-style automatic level control
+ * (a soft compressor), gets a touch of wow and flutter and is laid over the tape's own
+ * noise bed. The bed is synthesised from measurements of real tape noise:
  * a hiss with the measured spectrum (gently "breathing", and buzzing slightly at the head
  * drum rate) plus the buzz itself, a comb of tones from 30 Hz up to 1.6 kHz.
  */
@@ -26,6 +27,10 @@ class VhsAudio(seed: Long = System.nanoTime()) {
     private val tone = Biquad.highShelf(2200.0, -7.0)
     private val lowPassA = Biquad.lowPass(7200.0, 0.541)
     private val lowPassB = Biquad.lowPass(7200.0, 1.307)
+
+    // automatic level control
+    private var env = 0f
+    private var alcGain = 1f
 
     // wow & flutter delay line
     private val delay = FloatArray(DELAY_SIZE)
@@ -87,6 +92,7 @@ class VhsAudio(seed: Long = System.nanoTime()) {
             x = tone.run(x)
             x = lowPassA.run(x)
             x = lowPassB.run(x)
+            x = alc(x)
             x = CEILING * tanh(x / CEILING)
 
             // buzz comb
@@ -115,6 +121,35 @@ class VhsAudio(seed: Long = System.nanoTime()) {
             pcm[k] = (if (v > 32767) 32767 else if (v < -32768) -32768 else v).toShort()
         }
     }
+
+    /**
+     * Compressor of the kind a camcorder uses on its microphone: quick to pull loud sounds
+     * down, slow to let go. Below the threshold sound only gets the make-up gain.
+     */
+    private fun alc(x: Float): Float {
+        val a = if (x >= 0f) x else -x
+        env += (a - env) * (if (a > env) ALC_ATTACK else ALC_RELEASE)
+        if (++alcCount >= 16) {
+            alcCount = 0
+            val levelDb = 20.0 * Math.log10(env.toDouble() + 1e-9)
+            val over = levelDb - ALC_THRESHOLD_DB
+            // soft knee
+            val reduce = when {
+                over <= -ALC_KNEE_DB / 2 -> 0.0
+                over >= ALC_KNEE_DB / 2 -> over * (1.0 - 1.0 / ALC_RATIO)
+                else -> {
+                    val k = over + ALC_KNEE_DB / 2
+                    (1.0 - 1.0 / ALC_RATIO) * k * k / (2 * ALC_KNEE_DB)
+                }
+            }
+            alcTarget = 10.0.pow((ALC_MAKEUP_DB - reduce) / 20.0).toFloat()
+        }
+        alcGain += (alcTarget - alcGain) * 0.02f
+        return x * alcGain
+    }
+
+    private var alcCount = 0
+    private var alcTarget = 1f
 
     private fun wowFlutter(x: Float): Float {
         delay[delayPos] = x
@@ -183,8 +218,14 @@ class VhsAudio(seed: Long = System.nanoTime()) {
 
     companion object {
         const val SAMPLE_RATE = 48000
-        private const val MIC_GAIN = 0.7f
+        private const val MIC_GAIN = 1.4f
         private const val CEILING = 0.5f            // only keeps very loud sound from clipping
+        private const val ALC_THRESHOLD_DB = -15.0  // peak level where the level control starts to act
+        private const val ALC_RATIO = 3.0
+        private const val ALC_KNEE_DB = 8.0
+        private const val ALC_MAKEUP_DB = 3.0
+        private const val ALC_ATTACK = 0.004f       // per sample: ~5 ms
+        private const val ALC_RELEASE = 0.00008f    // per sample: ~0.25 s
         private const val FADE_SAMPLES = 720
         private const val DELAY_SIZE = 256
         private const val DELAY_MASK = DELAY_SIZE - 1

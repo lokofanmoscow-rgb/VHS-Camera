@@ -416,7 +416,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glEnableVertexAttribArray(0)
         GLES20.glVertexAttribPointer(0, 2, GLES20.GL_FLOAT, false, 0, q)
 
-        // Pass 0: phone camera -> the camcorder's own 640x480 picture
+        // Pass 0: phone camera -> the 960x720 camera picture
         val cam = progCam!!
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboVga[0])
         GLES20.glViewport(0, 0, VGA_W, VGA_H)
@@ -430,7 +430,7 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glUniform1i(cam.u("uCam"), 0)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
-        // Pass A: camcorder picture -> tape frame (digital zoom, colour, stamp, noise)
+        // Pass A: camera picture -> tape frame (digital zoom, colour, noise)
         val a = progA!!
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboA[0])
         GLES20.glViewport(0, 0, TAPE_W, TAPE_H)
@@ -442,15 +442,12 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texVga[0])
         GLES20.glUniform1i(a.u("uVga"), 0)
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, osdTex)
-        GLES20.glUniform1i(a.u("uOsd"), 1)
         GLES20.glActiveTexture(GLES20.GL_TEXTURE2)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, noiseTex)
         GLES20.glUniform1i(a.u("uNoise"), 2)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
-        // Pass B: horizontal tape filter
+        // Pass B: horizontal tape filter; lays in the stamp and the side borders
         val b = progB!!
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboB[0])
         b.use()
@@ -459,6 +456,9 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texA[0])
         GLES20.glUniform1i(b.u("uTex"), 0)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, osdTex)
+        GLES20.glUniform1i(b.u("uOsd"), 1)
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
         // Pass C: playback artefacts at output size
@@ -609,8 +609,8 @@ class VhsRenderer(private val context: Context, private val listener: Listener) 
         const val OUT_H = 720
         private const val TAPE_W = 480
         private const val TAPE_H = 720
-        private const val VGA_W = 640             // the camcorder's own picture
-        private const val VGA_H = 480
+        private const val VGA_W = 960             // the camera picture: the 4:3 middle of 720p
+        private const val VGA_H = 720
         private const val ZOOM_SPEED = 0.78f      // magnification per second, measured on the reference tapes
         private const val MAX_ZOOM = 6f
         private const val PLAY_SECONDS = 3.0f

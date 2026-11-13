@@ -496,7 +496,7 @@ class TapeRecorder(context: Context, private val withMicrophone: Boolean, privat
     companion object {
         private const val TAG = "TapeRecorder"
         const val ALBUM = "VHS Camera"
-        private const val VIDEO_BITRATE = 6_000_000
+        private const val VIDEO_BITRATE = 8_000_000
         private const val AUDIO_BITRATE = 128_000
         private const val BLOCK = 1024
         private const val AUDIO_WAIT_US = 1_500_000L

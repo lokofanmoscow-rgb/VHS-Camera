@@ -1,15 +1,14 @@
-// Pass A: camcorder picture -> "tape frame" at the internal tape resolution.
-// Zooms into the 640x480 camcorder picture, grades it, masks the side borders,
-// burns in the on-screen display and adds pre-filter tape noise.
+// Pass A: camera picture -> "tape frame" at the internal tape resolution.
+// Zooms into the 960x720 camera picture, grades it and adds pre-filter tape noise.
+// (The on-screen display and the side borders are laid in by pass B.)
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
 precision mediump float;
 #endif
 
-uniform sampler2D uVga;    // the 640x480 camcorder picture (bilinear)
+uniform sampler2D uVga;    // the 960x720 camera picture (bilinear)
 uniform float uZoom;       // digital zoom, 1 = whole picture
-uniform sampler2D uOsd;    // premultiplied on-screen display
 uniform sampler2D uNoise;
 uniform vec2 uInvSize;     // 1 / internal size
 uniform vec4 uRand;        // per-frame random numbers
@@ -29,10 +28,6 @@ void main() {
     c = clamp(c, 0.0, 1.0);
     c = 0.035 + 0.965 * c;
 
-    // On-screen display is part of the recorded signal.
-    vec4 osd = texture2D(uOsd, p);
-    c = c * (1.0 - osd.a) + osd.rgb;
-
     // Tape noise, added before the bandwidth filter so that it comes out soft:
     // blobs about two pixels wide and four lines tall.
     float ny = p.y * 160.0 - 0.5;
@@ -42,10 +37,6 @@ void main() {
     c += (n.r - 0.5) * NOISE_Y;
     c.r += (n.g - 0.5) * NOISE_C;
     c.b += (n.b - 0.5) * NOISE_C;
-
-    // Black side borders of the tape picture.
-    float px = p.x / uInvSize.x;
-    c *= clamp(px - 7.5, 0.0, 1.0) * clamp(473.17 - px, 0.0, 1.0);
 
     gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }
