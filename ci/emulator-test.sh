@@ -12,6 +12,8 @@ adb install -r -g "$APK" || exit 1
 adb shell settings put system accelerometer_rotation 0
 # Android's one-time "Viewing full screen" hint would swallow the test's touches.
 adb shell settings put secure immersive_mode_confirmations confirmed
+# The slow CI emulator sometimes reports its own launcher as "not responding"; keep that dialog away.
+adb shell settings put global hide_error_dialogs 1
 
 # Turn the virtual phone on its side, the way a camcorder app is held.
 rotate_device() {
@@ -35,6 +37,7 @@ run_case() {
   done
   sleep 2
   # Open the on-screen menu (MENU key, top of the left side of the body) for a look at it.
+  adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null 2>&1 || true
   adb exec-out screencap -p > "$OUT/${name}_screen_idle.png"
   adb shell input tap 240 270
   sleep 1
