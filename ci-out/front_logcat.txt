@@ -1,14 +1,8 @@
 --------- beginning of main
-11-13 14:01:55.671  5402  5402 I VHSCAM  : AUTOTEST_BEGIN seconds=8
-11-13 14:01:56.339  5402  5426 I VhsRenderer: frame 0: camera 1920x1440 sensor=270 front=true displayRotation=1 look=REAL_VHS texMatrix=0.00,-1.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,1.00,0.00,1.00
-11-13 14:02:27.351  5402  5426 I VhsRenderer: frame 30: camera 1920x1440 sensor=270 front=true displayRotation=1 look=REAL_VHS texMatrix=0.00,-1.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,1.00,0.00,1.00
-11-13 14:02:29.888  5402  5426 I VhsRenderer: recording stopped after 34 frames, 10535 ms
-11-13 14:02:29.888  5402  5426 I TapeRecorder: video finished, closing the tape
-11-13 14:02:30.252  5402  5555 I TapeRecorder: video encoder drained
-11-13 14:02:30.557  5402  5570 I TapeRecorder: audio encoder drained, 293888 samples, microphone=true
-11-13 14:02:31.344  5402  5555 I TapeRecorder: recording finished: uri=content://media/external_primary/video/media/1000000018 name=VHS_20261113_14021721.mp4 error=null
-11-13 14:02:31.400  5402  5402 I VHSCAM  : AUTOTEST_DONE uri=content://media/external_primary/video/media/1000000018 name=VHS_20261113_14021721.mp4 error=null
-11-13 14:02:51.215  5402  5402 I VHSCAM  : look: CLASSIC
-  overrideConfig={1.0 310mcc260mnc [en_US] ldltr sw411dp w866dp h363dp 420dpi nrml long land finger qwerty/v/v -nav/h winConfig={ mBounds=Rect(0, 0 - 2400, 1080) mAppBounds=Rect(128, 0 - 2400, 1017) mMaxBounds=Rect(0, 0 - 2400, 1080) mDisplayRotation=ROTATION_90 mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_90} as.3 s.383 fontWeightAdjustment=0}
+11-13 14:19:12.214  5334  5360 I VhsRenderer: frame 0: camera 1920x1440 sensor=270 front=true displayRotation=1 look=REAL_VHS texMatrix=0.00,-1.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,1.00,0.00,1.00
+11-13 14:19:24.328  5334  5334 I VHSCAM  : AUTOTEST_BEGIN seconds=8
+11-13 14:19:30.555  5334  5360 I VhsRenderer: frame 30: camera 1920x1440 sensor=270 front=true displayRotation=1 look=REAL_VHS texMatrix=0.00,-1.00,0.00,0.00,1.00,0.00,0.00,0.00,0.00,0.00,1.00,0.00,0.00,1.00,0.00,1.00
+11-13 14:19:31.934  5334  5430 W TapeRecorder: no audio track after 1500 ms, recording picture only
+  overrideConfig={1.0 310mcc260mnc [en_US] ldltr sw411dp w411dp h842dp 420dpi nrml long port finger qwerty/v/v -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2400) mAppBounds=Rect(0, 128 - 1080, 2337) mMaxBounds=Rect(0, 0 - 1080, 2400) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} as.3 s.450 fontWeightAdjustment=0}
       overrideConfig={0.0 ?mcc0mnc ?localeList ?layoutDir ?swdp ?wdp ?hdp ?density ?lsize ?long ?ldr ?wideColorGamut ?orien ?uimode ?night ?touch ?keyb/?/? ?nav/? winConfig={ mBounds=Rect(0, 0 - 0, 0) mAppBounds=null mMaxBounds=Rect(0, 0 - 0, 0) mDisplayRotation=undefined mWindowingMode=fullscreen mDisplayWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=undefined} ?fontWeightAdjustment}
-    mRotation=1 mDeferredRotationPauseCount=0
+    mRotation=0 mDeferredRotationPauseCount=0
