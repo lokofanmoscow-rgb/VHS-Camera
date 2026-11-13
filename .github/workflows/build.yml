@@ -96,19 +96,3 @@ jobs:
         with:
           name: emulator-test-output
           path: ci-out
-
-      # Temporary: keep the test output in the branch while the new screen is being checked.
-      - name: Commit test output to the branch
-        if: always()
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm -f ci-out/*.mp4
-          git add -f ci-out || exit 0
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Update emulator test output [skip ci]"
-          for i in 1 2 3; do
-            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
-            sleep 5
-          done
-          exit 1
