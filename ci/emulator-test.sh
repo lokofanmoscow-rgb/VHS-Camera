@@ -82,6 +82,12 @@ run_case() {
 }
 
 status=0
+# The app drawer, to see the launcher icon.
+adb shell input keyevent KEYCODE_HOME
+sleep 3
+adb shell input swipe 540 1900 540 500 400
+sleep 3
+adb exec-out screencap -p > "$OUT/launcher.png"
 rotate_device
 run_case back || status=1
 # The other landscape orientation (upside-down relative to the first), front camera.
