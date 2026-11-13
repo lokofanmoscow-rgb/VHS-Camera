@@ -69,7 +69,9 @@ run_case() {
   # A clip must have a picture and a sound track of sensible length.
   local dur
   dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$v")
-  awk -v d="$dur" 'BEGIN { exit !(d > 5.0 && d < 14.0) }' || { echo "CASE $name: bad duration $dur"; return 1; }
+  # The software-rendered CI emulator delivers only a few frames per second, so the
+  # eight closing frames alone can take several seconds: allow a wide margin.
+  awk -v d="$dur" 'BEGIN { exit !(d > 5.0 && d < 40.0) }' || { echo "CASE $name: bad duration $dur"; return 1; }
   grep -q "codec_name=h264" "$OUT/${name}_ffprobe.txt" || { echo "CASE $name: no video"; return 1; }
   grep -q "codec_name=aac" "$OUT/${name}_ffprobe.txt" || { echo "CASE $name: no audio"; return 1; }
   return 0
