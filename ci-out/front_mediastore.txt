@@ -1,1 +1,1 @@
-Row: 0 _display_name=VHS_20261113_07085955.mp4, relative_path=DCIM/VHS Camera/, is_pending=0, duration=11088, width=960, height=720, _size=1144923
+Row: 0 _display_name=VHS_20261113_07155969.mp4, relative_path=DCIM/VHS Camera/, is_pending=0, duration=11002, width=960, height=720, _size=1169159
