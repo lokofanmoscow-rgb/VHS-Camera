@@ -3,8 +3,8 @@ package com.vhscamera.app
 /**
  * The look of the recording, chosen in the on-screen menu.
  *
- * CLASSIC is the look matched to the reference clips. REAL_VHS is the place for the
- * picture and sound of a real VHS camcorder; for now it renders exactly like CLASSIC.
+ * CLASSIC is the look matched to the reference clips. REAL_VHS is a 90s CCD camcorder
+ * recording on VHS at SP speed, played back into a capture card: picture and sound.
  */
 enum class Look(val menuLabel: String) {
     CLASSIC("CLASSIC"),

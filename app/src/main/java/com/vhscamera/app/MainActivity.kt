@@ -99,6 +99,7 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
             viewfinder.mode = state.ordinal
             viewfinder.recordedMillis = if (state == State.RECORDING) now - recStartMs else lastRecordedMs
             viewfinder.zoom = renderer?.currentZoom ?: 1f
+            viewfinder.maxZoom = renderer?.maxZoom ?: 6f
             viewfinder.invalidate()
             recLamp.lit = state == State.RECORDING && now / 500 % 2 == 0L
             // Some systems bring the status bar back (for instance when the camera indicator appears).
@@ -251,8 +252,9 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         ui.post { showMessage("Ошибка графики: ${error.message}") }
     }
 
-    override fun onCameraConfigured(width: Int, height: Int, sensorOrientation: Int, front: Boolean) {
+    override fun onCameraConfigured(width: Int, height: Int, sensorOrientation: Int, front: Boolean, maxZoom: Float) {
         renderer?.setCameraGeometry(width, height, sensorOrientation, front)
+        renderer?.setCameraMaxZoom(maxZoom)
         ui.post {
             hasFlash = camera?.hasFlash == true
             updateControls()
@@ -261,6 +263,14 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
                 runAutotest()
             }
         }
+    }
+
+    override fun onCameraGain(stops: Float) {
+        renderer?.setCameraGain(stops)
+    }
+
+    override fun onCameraZoom(ratio: Float) {
+        camera?.setZoom(ratio)
     }
 
     override fun onCameraError(message: String) {
@@ -301,7 +311,8 @@ class MainActivity : Activity(), SurfaceHolder.Callback, VhsRenderer.Listener,
         }
         showMenu(false)
         try {
-            val rec = TapeRecorder(this, hasPermission(Manifest.permission.RECORD_AUDIO), this)
+            val zoomMotor = { r.zooming }
+            val rec = TapeRecorder(this, hasPermission(Manifest.permission.RECORD_AUDIO), look, zoomMotor, this)
             val surface = rec.start()
             r.startRecording(surface, rec)
             state = State.RECORDING

@@ -8,6 +8,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
@@ -20,9 +21,11 @@ import kotlin.math.abs
 class CameraController(context: Context, private val listener: Listener) {
 
     interface Listener {
-        /** Camera thread, before frames start: the geometry of the stream. */
-        fun onCameraConfigured(width: Int, height: Int, sensorOrientation: Int, front: Boolean)
+        /** Camera thread, before frames start: the geometry of the stream and how far it can zoom. */
+        fun onCameraConfigured(width: Int, height: Int, sensorOrientation: Int, front: Boolean, maxZoom: Float)
         fun onCameraError(message: String)
+        /** Camera thread, a few times a second: how much gain a camcorder would need here, in stops. */
+        fun onCameraGain(stops: Float)
     }
 
     private val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -37,6 +40,13 @@ class CameraController(context: Context, private val listener: Listener) {
     private var generation = 0
 
     @Volatile var hasFlash = false
+
+    // zoom done by the camera itself
+    private var zoomRatio = 1f
+    private var zoomRange: Range<Float>? = null
+    private var activeArray: android.graphics.Rect? = null
+    private var maxDigitalZoom = 1f
+    private var gainCounter = 0
         private set
 
     fun hasFrontAndBack(): Boolean {
@@ -86,11 +96,15 @@ class CameraController(context: Context, private val listener: Listener) {
                 val size = chooseSize(sizes)
                 val orientation = ch.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 90
                 hasFlash = ch.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+                zoomRange = if (Build.VERSION.SDK_INT >= 30) ch.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE) else null
+                activeArray = ch.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+                maxDigitalZoom = ch.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM) ?: 1f
+                val maxZoom = (zoomRange?.upper ?: maxDigitalZoom).coerceAtLeast(1f)
                 val fpsRanges = ch.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
                 val afModes = ch.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)
 
                 texture.setDefaultBufferSize(size.width, size.height)
-                listener.onCameraConfigured(size.width, size.height, orientation, isFront)
+                listener.onCameraConfigured(size.width, size.height, orientation, isFront, maxZoom)
                 val target = Surface(texture)
                 surface = target
 
@@ -120,8 +134,9 @@ class CameraController(context: Context, private val listener: Listener) {
                                             CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
                                         b.set(CaptureRequest.FLASH_MODE,
                                             if (torch && hasFlash) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF)
+                                        applyZoom(b)
                                         builder = b
-                                        s.setRepeatingRequest(b.build(), null, handler)
+                                        s.setRepeatingRequest(b.build(), exposureWatcher, handler)
                                     } catch (t: Throwable) {
                                         Log.e(TAG, "start preview", t)
                                         listener.onCameraError(t.message ?: "camera start failed")
@@ -163,6 +178,51 @@ class CameraController(context: Context, private val listener: Listener) {
         return at30.maxByOrNull { it.lower } ?: ranges.filter { it.upper >= 24 }.minByOrNull { it.upper } ?: ranges.maxByOrNull { it.upper }
     }
 
+    /** Zooms with the camera itself (the sensor crop keeps full detail, like optics). */
+    fun setZoom(ratio: Float) {
+        handler.post {
+            zoomRatio = ratio
+            val b = builder ?: return@post
+            val s = session ?: return@post
+            try {
+                applyZoom(b)
+                s.setRepeatingRequest(b.build(), exposureWatcher, handler)
+            } catch (t: Throwable) {
+                Log.w(TAG, "zoom", t)
+            }
+        }
+    }
+
+    private fun applyZoom(b: CaptureRequest.Builder) {
+        val range = zoomRange
+        if (Build.VERSION.SDK_INT >= 30 && range != null) {
+            b.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoomRatio.coerceIn(range.lower, range.upper))
+        } else {
+            val a = activeArray ?: return
+            val z = zoomRatio.coerceIn(1f, maxDigitalZoom)
+            val w = (a.width() / z).toInt()
+            val h = (a.height() / z).toInt()
+            val l = a.left + (a.width() - w) / 2
+            val t = a.top + (a.height() - h) / 2
+            b.set(CaptureRequest.SCALER_CROP_REGION, android.graphics.Rect(l, t, l + w, t + h))
+        }
+    }
+
+    /**
+     * Reads the exposure the camera chose and turns it into the gain a 90s camcorder would
+     * have needed: ISO equivalent at 1/60 s, relative to a CCD's native ~ISO 200.
+     */
+    private val exposureWatcher = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: android.hardware.camera2.TotalCaptureResult) {
+            if (++gainCounter % 6 != 0) return
+            val iso = result.get(android.hardware.camera2.CaptureResult.SENSOR_SENSITIVITY) ?: return
+            val exposure = result.get(android.hardware.camera2.CaptureResult.SENSOR_EXPOSURE_TIME) ?: return
+            val iso60 = iso * (exposure / 1e9 * 60.0)
+            val stops = (Math.log(iso60 / 200.0) / Math.log(2.0)).toFloat().coerceIn(0f, 6f)
+            listener.onCameraGain(stops)
+        }
+    }
+
     fun setTorch(on: Boolean) {
         handler.post {
             torch = on
@@ -171,7 +231,7 @@ class CameraController(context: Context, private val listener: Listener) {
             try {
                 b.set(CaptureRequest.FLASH_MODE,
                     if (on && hasFlash) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF)
-                s.setRepeatingRequest(b.build(), null, handler)
+                s.setRepeatingRequest(b.build(), exposureWatcher, handler)
             } catch (t: Throwable) {
                 Log.w(TAG, "torch", t)
             }

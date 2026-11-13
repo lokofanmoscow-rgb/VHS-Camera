@@ -32,7 +32,13 @@ import java.util.Locale
  * Records one clip: H.264 960x720 from the renderer's frames plus AAC mono 48 kHz from the
  * microphone (run through [VhsAudio]), muxed to MP4 straight into the gallery.
  */
-class TapeRecorder(context: Context, private val withMicrophone: Boolean, private val listener: Listener) :
+class TapeRecorder(
+    context: Context,
+    private val withMicrophone: Boolean,
+    private val look: Look,
+    private val zoomMotor: () -> Boolean,
+    private val listener: Listener,
+) :
     VhsRenderer.RecordingSink {
 
     interface Listener {
@@ -393,7 +399,7 @@ class TapeRecorder(context: Context, private val withMicrophone: Boolean, privat
             }
         }
 
-        val dsp = VhsAudio()
+        val dsp: TapeSound = if (look == Look.REAL_VHS) CamcorderSound(zoomMotor) else VhsAudio()
         val block = ShortArray(BLOCK)
         val info = MediaCodec.BufferInfo()
         var samples = 0L

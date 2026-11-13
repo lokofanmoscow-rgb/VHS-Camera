@@ -19,7 +19,7 @@ import kotlin.math.tanh
  * a hiss with the measured spectrum (gently "breathing", and buzzing slightly at the head
  * drum rate) plus the buzz itself, a comb of tones from 30 Hz up to 1.6 kHz.
  */
-class VhsAudio(seed: Long = System.nanoTime()) {
+class VhsAudio(seed: Long = System.nanoTime()) : TapeSound {
     private val rnd = Random(seed)
 
     // microphone chain
@@ -69,7 +69,7 @@ class VhsAudio(seed: Long = System.nanoTime()) {
     }
 
     /** Processes [count] microphone samples of [pcm] in place. */
-    fun process(pcm: ShortArray, count: Int) {
+    override fun process(pcm: ShortArray, count: Int) {
         // Slow drift of the noise, re-aimed a few times per second.
         driftCountdown -= count
         if (driftCountdown <= 0) {
